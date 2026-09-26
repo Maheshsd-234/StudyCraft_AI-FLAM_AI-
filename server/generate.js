@@ -1,44 +1,45 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import Groq from 'groq-sdk';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Enable CORS for frontend dev server
+app.use(
+  cors({
+    origin: ['http://localhost:5173', 'http://127.0.0.1:5173'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
 app.use(express.json({ limit: '2mb' }));
 
-// Initialize Groq client with environment variable
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY || '',
-});
-
 /**
- * System prompts enforcing strict JSON response shapes
+ * System prompts enforcing strict JSON output
  */
 const SYSTEM_PROMPTS = {
-  flashcards: `You are an expert educational study assistant. Given the user's study notes or topic, generate a comprehensive set of flashcards.
-Return ONLY valid JSON matching this exact schema:
+  flashcards: `You are an expert educational study assistant. Given the user's notes or topic, generate a structured set of flashcards.
+Return ONLY valid JSON matching this schema, no prose, no code fences:
 {
-  "title": "Clear concise title of the study set",
-  "summary": "1-2 sentence overview of core concepts covered",
+  "title": "Study Set Title",
+  "summary": "Brief summary of concepts",
   "cards": [
     {
       "id": "card-1",
-      "question": "Front of card question, term, or concept challenge",
-      "answer": "Back of card clear, accurate, and educational explanation",
-      "category": "Subtopic or concept category",
+      "question": "Front of card question or key term",
+      "answer": "Back of card clear and detailed answer",
+      "category": "Topic category",
       "difficulty": "easy" | "medium" | "hard"
     }
   ]
-}
-Generate between 4 to 8 high-quality cards. Do NOT include markdown code fences, prose, or greetings. Output raw JSON only.`,
+}`,
 
-  quiz: `You are an expert assessment quiz creator. Given the user's study notes or topic, generate a multi-question interactive quiz.
-Return ONLY valid JSON matching this exact schema:
+  quiz: `You are an expert educational quiz creator. Given the user's notes or topic, generate a multi-question assessment quiz.
+Return ONLY valid JSON matching this schema, no prose, no code fences:
 {
   "title": "Quiz Title",
   "topic": "Topic Name",
@@ -53,80 +54,112 @@ Return ONLY valid JSON matching this exact schema:
         { "id": "D", "text": "Fourth option" }
       ],
       "correctOptionId": "A",
-      "explanation": "Clear explanation of why option A is correct and why other options are incorrect."
+      "explanation": "Educational explanation of why the correct answer is right."
     }
   ]
-}
-Generate between 3 to 6 questions with exactly 4 options each (A, B, C, D). Do NOT include markdown code fences, prose, or greetings. Output raw JSON only.`,
+}`,
 };
 
-// POST /api/generate
+/**
+ * POST /api/generate
+ * Accepts { notes: string, mode: "flashcards" | "quiz" }
+ * Calls Groq's chat completions API with 15-second timeout and returns raw model text.
+ */
 app.post('/api/generate', async (req, res) => {
-  const { prompt, mode = 'flashcards', options = {} } = req.body;
+  const notes = req.body.notes || req.body.prompt;
+  const mode = req.body.mode || 'flashcards';
 
-  if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
-    return res.status(400).json({
-      success: false,
-      error: 'A non-empty prompt is required.',
-    });
+  if (!notes || typeof notes !== 'string' || !notes.trim()) {
+    return res.status(400).json({ error: 'Missing or empty notes' });
   }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey || apiKey.trim() === '') {
     return res.status(500).json({
-      success: false,
-      error: 'GROQ_API_KEY is not configured on the server. Please add your API key to .env file.',
+      error: 'GROQ_API_KEY is not configured on the server. Please set it in your .env file.',
     });
   }
 
   const systemInstruction = SYSTEM_PROMPTS[mode] || SYSTEM_PROMPTS.flashcards;
 
+  // 15-second timeout controller
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 15000);
+
   try {
-    const completion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: 'system',
-          content: systemInstruction,
-        },
-        {
-          role: 'user',
-          content: `Content / Topic to convert into ${mode}:\n\n${prompt}`,
-        },
-      ],
-      model: 'llama-3.3-70b-versatile',
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
+    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: systemInstruction,
+          },
+          {
+            role: 'user',
+            content: `Notes / Topic:\n\n${notes.trim()}`,
+          },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      }),
+      signal: controller.signal,
     });
 
-    const content = completion.choices[0]?.message?.content;
+    clearTimeout(timeoutId);
 
-    if (!content) {
-      return res.status(502).json({
-        success: false,
-        error: 'The AI model returned an empty response.',
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      let errorJson = null;
+      try {
+        errorJson = JSON.parse(errorText);
+      } catch {
+        // ignore
+      }
+      return res.status(groqResponse.status).json({
+        error: errorJson?.error?.message || `Groq API responded with status ${groqResponse.status}`,
+        details: errorText,
       });
     }
 
+    const data = await groqResponse.json();
+    const rawContent = data.choices?.[0]?.message?.content ?? '';
+
+    if (!rawContent) {
+      return res.status(502).json({ error: 'Model returned an empty response' });
+    }
+
+    // Return raw model text (also includes parsed helper for consumers)
+    let parsedData = null;
     try {
-      const parsedData = JSON.parse(content);
-      return res.json({
-        success: true,
-        data: parsedData,
-        rawText: content,
-      });
-    } catch (parseError) {
-      // Model returned non-JSON despite instructions
-      return res.json({
-        success: true,
-        data: null,
-        rawText: content,
-      });
+      parsedData = JSON.parse(rawContent);
+    } catch {
+      // keep null if malformed
     }
-  } catch (error) {
-    console.error('Groq API generation error:', error);
+
+    return res.json({
+      raw: rawContent,
+      rawText: rawContent,
+      data: parsedData,
+      mode,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      return res.status(504).json({ error: 'timeout' });
+    }
+
+    console.error('Server generation error:', err);
     return res.status(500).json({
-      success: false,
-      error: error.message || 'An error occurred while communicating with the Groq API.',
+      error: err.message || 'Internal server error occurred while contacting Groq API.',
     });
   }
 });
@@ -134,10 +167,10 @@ app.post('/api/generate', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
-    hasApiKey: Boolean(process.env.GROQ_API_KEY),
+    hasApiKey: Boolean(process.env.GROQ_API_KEY && process.env.GROQ_API_KEY.trim() !== ''),
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Groq proxy server running on http://localhost:${PORT}`);
 });

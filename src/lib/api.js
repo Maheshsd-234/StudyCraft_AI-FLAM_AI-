@@ -26,7 +26,8 @@ export async function generateStudyMaterial({ prompt, mode = 'flashcards', signa
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        prompt: prompt.trim(),
+        notes: (prompt || '').trim(),
+        prompt: (prompt || '').trim(),
         mode,
         options,
       }),
