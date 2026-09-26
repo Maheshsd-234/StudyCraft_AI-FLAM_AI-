@@ -19,45 +19,60 @@ app.use(
 app.use(express.json({ limit: '2mb' }));
 
 /**
- * System prompts enforcing strict JSON output
+ * System prompts enforcing strict JSON output and shape adherence
  */
 const SYSTEM_PROMPTS = {
   flashcards: `You are an expert educational study assistant. Given the user's notes or topic, generate a structured set of flashcards.
-Return ONLY valid JSON matching this schema, no prose, no code fences:
+Generate between 8 to 12 items scaled to the depth and length of the provided input.
+You must return ONLY valid JSON matching this exact schema:
 {
   "title": "Study Set Title",
-  "summary": "Brief summary of concepts",
+  "summary": "1-2 sentence concise summary of core concepts",
   "cards": [
     {
       "id": "card-1",
-      "question": "Front of card question or key term",
-      "answer": "Back of card clear and detailed answer",
-      "category": "Topic category",
-      "difficulty": "easy" | "medium" | "hard"
+      "question": "Front of card question, prompt, or key concept",
+      "answer": "Back of card clear, thorough, and educational explanation",
+      "category": "Topic category or subtopic name",
+      "difficulty": "easy"
     }
   ]
-}`,
+}
+Rules:
+- return ONLY valid JSON, no markdown fences, no prose.
+- Do not wrap the response in \`\`\`json or \`\`\`.
+- Generate 8 to 12 high-quality cards unless the notes are extremely short.
+- Ensure "title", "summary", and "cards" are present.
+- Each card must have "id", "question", "answer", "category", and "difficulty" (one of "easy", "medium", "hard").`,
 
-  quiz: `You are an expert educational quiz creator. Given the user's notes or topic, generate a multi-question assessment quiz.
-Return ONLY valid JSON matching this schema, no prose, no code fences:
+  quiz: `You are an expert educational assessment creator. Given the user's notes or topic, generate a comprehensive multiple-choice quiz.
+Generate between 8 to 12 items scaled to the depth and length of the provided input.
+You must return ONLY valid JSON matching this exact schema:
 {
   "title": "Quiz Title",
   "topic": "Topic Name",
   "questions": [
     {
       "id": "q-1",
-      "question": "The question text?",
+      "question": "The question or problem statement?",
       "options": [
-        { "id": "A", "text": "First option" },
-        { "id": "B", "text": "Second option" },
-        { "id": "C", "text": "Third option" },
-        { "id": "D", "text": "Fourth option" }
+        { "id": "A", "text": "First option choice" },
+        { "id": "B", "text": "Second option choice" },
+        { "id": "C", "text": "Third option choice" },
+        { "id": "D", "text": "Fourth option choice" }
       ],
       "correctOptionId": "A",
-      "explanation": "Educational explanation of why the correct answer is right."
+      "explanation": "Detailed educational explanation of why the correct answer is right and why alternatives are incorrect."
     }
   ]
-}`,
+}
+Rules:
+- return ONLY valid JSON, no markdown fences, no prose.
+- Do not wrap the response in \`\`\`json or \`\`\`.
+- Generate 8 to 12 questions unless the notes are extremely short.
+- Each question must have exactly 4 options with ids "A", "B", "C", and "D".
+- "correctOptionId" must match one of the option IDs.
+- Ensure "title", "topic", and "questions" are present.`
 };
 
 /**
@@ -104,7 +119,7 @@ app.post('/api/generate', async (req, res) => {
           },
           {
             role: 'user',
-            content: `Notes / Topic:\n\n${notes.trim()}`,
+            content: `Notes / Topic to generate ${mode} for:\n\n${notes.trim()}`,
           },
         ],
         response_format: { type: 'json_object' },
@@ -132,22 +147,13 @@ app.post('/api/generate', async (req, res) => {
     const data = await groqResponse.json();
     const rawContent = data.choices?.[0]?.message?.content ?? '';
 
-    if (!rawContent) {
+    if (!rawContent || !rawContent.trim()) {
       return res.status(502).json({ error: 'Model returned an empty response' });
-    }
-
-    // Return raw model text (also includes parsed helper for consumers)
-    let parsedData = null;
-    try {
-      parsedData = JSON.parse(rawContent);
-    } catch {
-      // keep null if malformed
     }
 
     return res.json({
       raw: rawContent,
       rawText: rawContent,
-      data: parsedData,
       mode,
     });
   } catch (err) {
