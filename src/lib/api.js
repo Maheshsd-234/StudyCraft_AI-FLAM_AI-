@@ -53,15 +53,14 @@ export async function generate(notes, mode = 'flashcards', signal) {
     if (err.name === 'AbortError') {
       throw err;
     }
-    // Server down, connection refused, or network dropped
     throw new ApiError(
-      'Unable to connect to the backend server. Please verify the proxy is active.',
+      'Unable to connect to the backend server. Please verify your connection.',
       'network',
       err.message
     );
   }
 
-  // Handle HTTP status errors
+  // Handle HTTP status errors (Read stream once as text to prevent "stream already read" error)
   if (!response.ok) {
     if (response.status === 504) {
       throw new ApiError(
@@ -72,12 +71,18 @@ export async function generate(notes, mode = 'flashcards', signal) {
       );
     }
 
-    let errorPayload;
+    let rawErrorText = '';
     try {
-      errorPayload = await response.json();
+      rawErrorText = await response.text();
+    } catch (readErr) {
+      rawErrorText = `HTTP ${response.status}`;
+    }
+
+    let errorPayload = null;
+    try {
+      errorPayload = JSON.parse(rawErrorText);
     } catch {
-      const errorText = await response.text();
-      errorPayload = { error: errorText };
+      errorPayload = { error: rawErrorText || `HTTP ${response.status}` };
     }
 
     if (errorPayload?.error === 'timeout') {
@@ -92,23 +97,35 @@ export async function generate(notes, mode = 'flashcards', signal) {
     throw new ApiError(
       errorPayload?.error || `Server responded with status ${response.status}`,
       'network',
-      errorPayload?.details || JSON.stringify(errorPayload),
+      errorPayload?.details || rawErrorText,
       response.status
     );
   }
 
-  let resultJson;
+  // Read response stream safely
+  let responseText = '';
   try {
-    resultJson = await response.json();
+    responseText = await response.text();
+  } catch (readErr) {
+    throw new ApiError(
+      'Failed to read response from server.',
+      'network',
+      readErr.message
+    );
+  }
+
+  let resultJson = null;
+  try {
+    resultJson = JSON.parse(responseText);
   } catch (err) {
     throw new ApiError(
       'Server returned an unparseable response.',
       'malformed',
-      err.message
+      responseText
     );
   }
 
-  const rawModelContent = resultJson.raw ?? resultJson.rawText ?? resultJson;
+  const rawModelContent = resultJson?.raw ?? resultJson?.rawText ?? resultJson;
 
   if (!rawModelContent || (typeof rawModelContent === 'string' && !rawModelContent.trim())) {
     throw new ApiError(
