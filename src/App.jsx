@@ -205,20 +205,6 @@ export default function App() {
                 }}
               >
                 StudyCraft AI
-                <span
-                  style={{
-                    fontSize: '0.65rem',
-                    padding: '2px 7px',
-                    borderRadius: '999px',
-                    backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                    color: 'var(--accent-primary)',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  Interactive
-                </span>
               </h1>
               <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>
                 Structured AI Study Assistant
