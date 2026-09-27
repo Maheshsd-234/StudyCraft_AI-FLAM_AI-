@@ -168,12 +168,14 @@ export default function App() {
 
       {/* Main Container */}
       <main
+        className="app-container"
         style={{
           flex: 1,
           maxWidth: '1040px',
           width: '100%',
           margin: '0 auto',
           padding: '2rem 1.5rem',
+          boxSizing: 'border-box',
         }}
       >
         {/* Intro Hero Badge */}
@@ -197,6 +199,7 @@ export default function App() {
             AI-Driven Educational Knowledge Structuring
           </div>
           <h2
+            className="hero-title"
             style={{
               fontSize: '2rem',
               fontWeight: '800',
@@ -207,6 +210,7 @@ export default function App() {
             Turn Raw Notes into Interactive Study Tools
           </h2>
           <p
+            className="hero-subtitle"
             style={{
               color: 'var(--text-secondary)',
               maxWidth: '580px',

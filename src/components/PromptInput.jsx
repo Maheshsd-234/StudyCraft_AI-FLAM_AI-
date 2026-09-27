@@ -17,15 +17,8 @@ const SAMPLE_PROMPTS = [
 ];
 
 /**
- * Free-form text input + mode toggle + generate button
- *
- * @param {{
- *   onSubmit: (notes: string, mode: 'flashcards' | 'quiz') => void,
- *   isLoading: boolean,
- *   currentMode: 'flashcards' | 'quiz',
- *   onModeChange: (mode: 'flashcards' | 'quiz') => void,
- *   initialNotes?: string
- * }} props
+ * PromptInput: Free-form text input + mode toggle + submit
+ * Responsive down to 375px with >= 44px touch targets.
  */
 export default function PromptInput({
   onSubmit,
@@ -61,6 +54,7 @@ export default function PromptInput({
 
   return (
     <div
+      className="prompt-card"
       style={{
         backgroundColor: 'var(--bg-glass-card)',
         borderRadius: 'var(--radius-lg)',
@@ -69,10 +63,12 @@ export default function PromptInput({
         backdropFilter: 'blur(16px)',
         boxShadow: 'var(--shadow-md)',
         marginBottom: '2rem',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       <form onSubmit={handleSubmit}>
-        {/* Header: Mode Switcher */}
+        {/* Header: Label & Mode Toggle (Stacks on Mobile) */}
         <div
           style={{
             display: 'flex',
@@ -90,23 +86,27 @@ export default function PromptInput({
           </div>
 
           <div
+            className="mode-toggle-group"
             style={{
               display: 'inline-flex',
               backgroundColor: 'var(--bg-primary)',
               borderRadius: 'var(--radius-md)',
               padding: '4px',
               border: '1px solid var(--border-subtle)',
+              boxSizing: 'border-box',
             }}
           >
             <button
               type="button"
               disabled={isLoading}
               onClick={() => onModeChange('flashcards')}
+              className="mode-toggle-btn"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '0.5rem 1.1rem',
+                minHeight: '44px',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.85rem',
                 fontWeight: currentMode === 'flashcards' ? '700' : '500',
@@ -124,11 +124,13 @@ export default function PromptInput({
               type="button"
               disabled={isLoading}
               onClick={() => onModeChange('quiz')}
+              className="mode-toggle-btn"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
                 padding: '0.5rem 1.1rem',
+                minHeight: '44px',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.85rem',
                 fontWeight: currentMode === 'quiz' ? '700' : '500',
@@ -146,7 +148,7 @@ export default function PromptInput({
         </div>
 
         {/* Free-form Textarea */}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', width: '100%' }}>
           <textarea
             value={notes}
             onChange={(e) => {
@@ -157,7 +159,7 @@ export default function PromptInput({
             disabled={isLoading}
             placeholder={
               currentMode === 'flashcards'
-                ? 'Paste free-form notes, concepts, definitions, or raw study text here to synthesize into 3D flashcards...'
+                ? 'Paste free-form notes, lecture text, or topics here to synthesize into 3D flashcards...'
                 : 'Paste notes or a topic here to generate a scored interactive assessment quiz...'
             }
             rows={5}
@@ -168,11 +170,12 @@ export default function PromptInput({
               borderRadius: 'var(--radius-md)',
               color: 'var(--text-primary)',
               padding: '1rem',
-              fontSize: '0.95rem',
+              fontSize: '1rem', // Prevents iOS auto-zoom
               lineHeight: '1.6',
               resize: 'vertical',
               opacity: isLoading ? 0.6 : 1,
               transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
+              boxSizing: 'border-box',
             }}
             onFocus={(e) => {
               if (!isWhitespaceOnly) {
@@ -201,7 +204,7 @@ export default function PromptInput({
                 color: 'var(--accent-danger)',
                 fontSize: '0.78rem',
                 backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                padding: '2px 8px',
+                padding: '3px 8px',
                 borderRadius: 'var(--radius-sm)',
                 border: '1px solid rgba(239, 68, 68, 0.3)',
               }}
@@ -212,8 +215,9 @@ export default function PromptInput({
           )}
         </div>
 
-        {/* Footer: Quick Samples & Submit */}
+        {/* Action Controls & Sample Chips */}
         <div
+          className="prompt-actions-footer"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -234,7 +238,7 @@ export default function PromptInput({
                 gap: '4px',
               }}
             >
-              <Lightbulb size={13} /> Quick Topics:
+              <Lightbulb size={13} /> Try:
             </span>
             {SAMPLE_PROMPTS.map((sample, idx) => (
               <button
@@ -244,7 +248,8 @@ export default function PromptInput({
                 onClick={() => handleSampleClick(sample.text)}
                 style={{
                   fontSize: '0.75rem',
-                  padding: '3px 8px',
+                  padding: '4px 10px',
+                  minHeight: '34px',
                   borderRadius: 'var(--radius-sm)',
                   backgroundColor: 'var(--bg-surface)',
                   color: 'var(--text-secondary)',
@@ -269,15 +274,17 @@ export default function PromptInput({
             ))}
           </div>
 
-          {/* Generate Button */}
+          {/* Submit Button (>= 44px height) */}
           <button
             type="submit"
+            className="prompt-submit-btn"
             disabled={!isInputValid || isLoading}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
               padding: '0.75rem 1.6rem',
+              minHeight: '44px',
               backgroundColor: isInputValid && !isLoading ? 'var(--accent-primary)' : 'var(--bg-surface)',
               color: isInputValid && !isLoading ? '#fff' : 'var(--text-muted)',
               borderRadius: 'var(--radius-md)',
@@ -293,7 +300,7 @@ export default function PromptInput({
               if (isInputValid && !isLoading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)';
             }}
             onMouseLeave={(e) => {
-              if (isInputValid && !isLoading) e.currentTarget.style.backgroundColor = 'var(--accent-primary)';
+              e.currentTarget.style.backgroundColor = 'var(--accent-primary)';
             }}
           >
             <Sparkles size={16} />

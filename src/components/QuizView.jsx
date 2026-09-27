@@ -14,19 +14,7 @@ import {
 
 /**
  * QuizView: Interactive Assessment Component
- *
- * Props:
- * - questions: Array<{ id: string, question: string, options: Array<{ id: string, text: string }>, correctOptionId: string, explanation: string }>
- * - title?: string
- * - topic?: string
- * - payload?: object (fallback wrapper)
- *
- * Behavior:
- * - One question at a time with 4 selectable choices.
- * - "Check Answer" locks choice and reveals correct/incorrect + explanation.
- * - "Next Question" advances to the next question.
- * - At end: Displays score and breakdown of missed questions.
- * - "Retest wrong answers" restarts quiz using ONLY missed questions (client-side state, no API call).
+ * Responsive for viewports >= 375px with >= 44px touch targets.
  */
 export default function QuizView({
   questions: propQuestions,
@@ -67,12 +55,14 @@ export default function QuizView({
     return (
       <div
         style={{
-          padding: '3rem 2rem',
+          padding: '3rem 1.5rem',
           textAlign: 'center',
           backgroundColor: 'var(--bg-glass-card)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-subtle)',
           color: 'var(--text-muted)',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <HelpCircle size={40} style={{ marginBottom: '1rem', opacity: 0.6 }} />
@@ -167,9 +157,11 @@ export default function QuizView({
           backgroundColor: 'var(--bg-glass-card)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-subtle)',
-          padding: '2.5rem 2rem',
+          padding: '2rem 1.5rem',
           backdropFilter: 'blur(16px)',
           boxShadow: 'var(--shadow-md)',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         {/* Score Header */}
@@ -210,7 +202,7 @@ export default function QuizView({
             />
           </div>
 
-          <h2 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.4rem', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: '800', marginBottom: '0.4rem', letterSpacing: '-0.02em' }}>
             {scorePercentage === 100
               ? 'Perfect Score! 🎯'
               : scorePercentage >= 80
@@ -220,15 +212,16 @@ export default function QuizView({
               : 'Needs Further Review'}
           </h2>
 
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem' }}>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
             You scored <strong style={{ color: 'var(--text-primary)' }}>{correctCount}</strong> out of{' '}
             <strong style={{ color: 'var(--text-primary)' }}>{totalAnswered}</strong> ({scorePercentage}%)
-            {isRetestMode && ' in Wrong-Answer Retest Mode'}
+            {isRetestMode && ' in Retest Mode'}
           </p>
         </div>
 
-        {/* Action Controls */}
+        {/* Action Controls (min-height 44px) */}
         <div
+          className="quiz-actions-footer"
           style={{
             display: 'flex',
             justifyContent: 'center',
@@ -246,6 +239,7 @@ export default function QuizView({
                 alignItems: 'center',
                 gap: '8px',
                 padding: '0.75rem 1.6rem',
+                minHeight: '44px',
                 backgroundColor: 'var(--accent-warning)',
                 color: '#000',
                 borderRadius: 'var(--radius-md)',
@@ -268,6 +262,7 @@ export default function QuizView({
               alignItems: 'center',
               gap: '8px',
               padding: '0.75rem 1.6rem',
+              minHeight: '44px',
               backgroundColor: 'var(--bg-surface)',
               color: 'var(--text-primary)',
               borderRadius: 'var(--radius-md)',
@@ -311,7 +306,7 @@ export default function QuizView({
                   <div
                     key={q.id || idx}
                     style={{
-                      padding: '1.35rem',
+                      padding: '1.25rem',
                       borderRadius: 'var(--radius-md)',
                       backgroundColor: 'var(--bg-secondary)',
                       border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -321,7 +316,7 @@ export default function QuizView({
                       <span style={{ fontSize: '0.78rem', color: 'var(--accent-danger)', fontWeight: '700' }}>
                         Missed #{idx + 1}
                       </span>
-                      <h4 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>
                         {q.question}
                       </h4>
                     </div>
@@ -340,7 +335,7 @@ export default function QuizView({
                     {q.explanation && (
                       <div
                         style={{
-                          padding: '0.75rem 1rem',
+                          padding: '0.75rem',
                           backgroundColor: 'var(--bg-primary)',
                           borderRadius: 'var(--radius-sm)',
                           border: '1px solid var(--border-subtle)',
@@ -379,9 +374,11 @@ export default function QuizView({
         backgroundColor: 'var(--bg-glass-card)',
         borderRadius: 'var(--radius-lg)',
         border: '1px solid var(--border-subtle)',
-        padding: '2rem',
+        padding: '1.75rem 1.25rem',
         backdropFilter: 'blur(16px)',
         boxShadow: 'var(--shadow-md)',
+        width: '100%',
+        boxSizing: 'border-box',
       }}
     >
       {/* Quiz Header Info */}
@@ -416,7 +413,7 @@ export default function QuizView({
               {displayTopic}
             </span>
           </div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginTop: '0.25rem', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.35rem', fontWeight: '800', marginTop: '0.25rem', letterSpacing: '-0.02em' }}>
             {displayTitle}
           </h2>
         </div>
@@ -444,7 +441,7 @@ export default function QuizView({
           backgroundColor: 'var(--bg-surface)',
           borderRadius: '999px',
           overflow: 'hidden',
-          marginBottom: '1.75rem',
+          marginBottom: '1.5rem',
         }}
       >
         <div
@@ -458,10 +455,10 @@ export default function QuizView({
       </div>
 
       {/* Question Text */}
-      <div style={{ marginBottom: '1.75rem' }}>
+      <div style={{ marginBottom: '1.5rem' }}>
         <h3
           style={{
-            fontSize: '1.25rem',
+            fontSize: '1.18rem',
             fontWeight: '700',
             lineHeight: '1.55',
             color: 'var(--text-primary)',
@@ -471,13 +468,12 @@ export default function QuizView({
         </h3>
       </div>
 
-      {/* 4 Selectable Choices */}
+      {/* 4 Selectable Choices (min-height >= 48px for comfortable touch) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '1.75rem' }}>
         {currentQ.options.map((opt) => {
           const isChosen = selectedOptionId === opt.id;
           const isCorrect = opt.id === currentQ.correctOptionId;
 
-          // Compute styles depending on revealed state
           let itemBg = 'var(--bg-secondary)';
           let itemBorder = 'var(--border-subtle)';
           let badgeBg = 'var(--bg-surface)';
@@ -512,7 +508,8 @@ export default function QuizView({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                padding: '1rem 1.25rem',
+                padding: '0.85rem 1.1rem',
+                minHeight: '48px',
                 borderRadius: 'var(--radius-md)',
                 backgroundColor: itemBg,
                 border: `1.5px solid ${itemBorder}`,
@@ -520,6 +517,8 @@ export default function QuizView({
                 color: 'var(--text-primary)',
                 transition: 'var(--transition-fast)',
                 cursor: isAnswerRevealed ? 'default' : 'pointer',
+                boxSizing: 'border-box',
+                width: '100%',
               }}
               onMouseEnter={(e) => {
                 if (!isAnswerRevealed && !isChosen) {
@@ -535,8 +534,8 @@ export default function QuizView({
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <span
                   style={{
-                    width: '30px',
-                    height: '30px',
+                    width: '32px',
+                    height: '32px',
                     borderRadius: '50%',
                     display: 'flex',
                     alignItems: 'center',
@@ -571,11 +570,11 @@ export default function QuizView({
         <div
           className="animate-fade-in"
           style={{
-            padding: '1rem 1.25rem',
+            padding: '1rem 1.15rem',
             borderRadius: 'var(--radius-md)',
             backgroundColor: selectedOptionId === currentQ.correctOptionId ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
             border: `1px solid ${selectedOptionId === currentQ.correctOptionId ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-            marginBottom: '1.75rem',
+            marginBottom: '1.5rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.35rem' }}>
@@ -590,8 +589,8 @@ export default function QuizView({
         </div>
       )}
 
-      {/* Control Buttons */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+      {/* Control Buttons (min-height 44px, full width on mobile) */}
+      <div className="quiz-actions-footer" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
         {!isAnswerRevealed ? (
           <button
             type="button"
@@ -602,6 +601,7 @@ export default function QuizView({
               alignItems: 'center',
               gap: '8px',
               padding: '0.75rem 1.6rem',
+              minHeight: '44px',
               backgroundColor: isSelected ? 'var(--accent-primary)' : 'var(--bg-surface)',
               color: isSelected ? '#fff' : 'var(--text-muted)',
               borderRadius: 'var(--radius-md)',
@@ -625,6 +625,7 @@ export default function QuizView({
               alignItems: 'center',
               gap: '8px',
               padding: '0.75rem 1.6rem',
+              minHeight: '44px',
               backgroundColor: 'var(--accent-primary)',
               color: '#fff',
               borderRadius: 'var(--radius-md)',

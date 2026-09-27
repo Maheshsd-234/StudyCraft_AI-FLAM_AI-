@@ -15,20 +15,7 @@ import {
 
 /**
  * FlashcardDeck: Controlled interactive flashcard component
- *
- * Props:
- * - cards: Array<{ id: string, question: string, answer: string, category?: string, difficulty?: string }>
- * - title?: string (optional topic title)
- * - summary?: string (optional topic summary)
- * - payload?: object (optional container object for backward compatibility)
- *
- * Features:
- * - One card visible at a time
- * - CSS-transform 3D flip between Question and Answer
- * - Prev / Next navigation
- * - Progress indicator formatted as "3 / 10"
- * - Shuffle deck ordering
- * - Full keyboard accessibility: Tab-focusable, Space/Enter to flip, ArrowLeft/ArrowRight to navigate
+ * Responsive for viewports >= 375px with >= 44px touch targets.
  */
 export default function FlashcardDeck({ cards: propCards, title: propTitle, summary: propSummary, payload }) {
   const cardList = propCards || payload?.cards || [];
@@ -112,7 +99,6 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
   // Keyboard Navigation: Space / Enter to flip, Arrow Left/Right to navigate
   const handleKeyDown = useCallback(
     (e) => {
-      // Ignore if user is currently typing in an input or textarea
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target?.tagName)) return;
 
       if (e.code === 'Space' || e.key === ' ' || e.key === 'Enter') {
@@ -129,7 +115,6 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
     [handleFlip, handleNext, handlePrev]
   );
 
-  // Bind global keyboard listener
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -139,12 +124,14 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
     return (
       <div
         style={{
-          padding: '3rem 2rem',
+          padding: '3rem 1.5rem',
           textAlign: 'center',
           backgroundColor: 'var(--bg-glass-card)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-subtle)',
           color: 'var(--text-muted)',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <Layers size={40} style={{ marginBottom: '1rem', opacity: 0.6 }} />
@@ -160,11 +147,13 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
     return (
       <div
         style={{
-          padding: '3rem 2rem',
+          padding: '3rem 1.5rem',
           textAlign: 'center',
           backgroundColor: 'var(--bg-glass-card)',
           borderRadius: 'var(--radius-lg)',
           border: '1px solid var(--border-subtle)',
+          width: '100%',
+          boxSizing: 'border-box',
         }}
       >
         <Award size={48} color="var(--accent-success)" style={{ marginBottom: '1rem' }} />
@@ -178,6 +167,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
           onClick={() => setFilterMode('all')}
           style={{
             padding: '0.65rem 1.4rem',
+            minHeight: '44px',
             backgroundColor: 'var(--accent-primary)',
             color: '#fff',
             borderRadius: 'var(--radius-md)',
@@ -204,11 +194,13 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
       className="animate-fade-in"
       style={{
         width: '100%',
+        boxSizing: 'border-box',
         outline: 'none',
       }}
     >
-      {/* Header Info & Deck Controls */}
+      {/* Header Info & Deck Controls (Responsive Row) */}
       <div
+        className="deck-header-row"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -251,18 +243,18 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
             </span>
           </div>
 
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
+          <h2 style={{ fontSize: '1.4rem', fontWeight: '800', letterSpacing: '-0.02em' }}>
             {displayTitle}
           </h2>
 
           {displaySummary && (
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '0.25rem' }}>
               {displaySummary}
             </p>
           )}
         </div>
 
-        {/* Action Controls */}
+        {/* Action Controls with min-height >= 44px for touch */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             type="button"
@@ -272,12 +264,13 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               display: 'inline-flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '0.5rem 0.9rem',
+              padding: '0.5rem 1rem',
+              minHeight: '44px',
               backgroundColor: 'var(--bg-surface)',
               color: 'var(--text-secondary)',
               borderRadius: 'var(--radius-sm)',
               border: '1px solid var(--border-subtle)',
-              fontSize: '0.82rem',
+              fontSize: '0.85rem',
               fontWeight: '600',
               transition: 'var(--transition-fast)',
             }}
@@ -290,7 +283,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               e.currentTarget.style.color = 'var(--text-secondary)';
             }}
           >
-            <Shuffle size={14} />
+            <Shuffle size={15} />
             Shuffle
           </button>
 
@@ -306,17 +299,18 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '0.5rem 0.9rem',
+                padding: '0.5rem 1rem',
+                minHeight: '44px',
                 backgroundColor: filterMode === 'review' ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-surface)',
                 color: filterMode === 'review' ? 'var(--accent-danger)' : 'var(--text-secondary)',
                 borderRadius: 'var(--radius-sm)',
                 border: `1px solid ${filterMode === 'review' ? 'var(--accent-danger)' : 'var(--border-subtle)'}`,
-                fontSize: '0.82rem',
+                fontSize: '0.85rem',
                 fontWeight: '600',
                 transition: 'var(--transition-fast)',
               }}
             >
-              <RotateCcw size={14} />
+              <RotateCcw size={15} />
               {filterMode === 'review' ? 'Show All' : `Review Flagged (${reviewIds.size})`}
             </button>
           )}
@@ -324,7 +318,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
       </div>
 
       {/* Progress Bar */}
-      <div style={{ marginBottom: '1.5rem' }}>
+      <div style={{ marginBottom: '1.25rem' }}>
         <div
           style={{
             display: 'flex',
@@ -335,7 +329,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
             fontWeight: '600',
           }}
         >
-          <span>Progress</span>
+          <span>Card Progress</span>
           <span>{progressPercentage}%</span>
         </div>
         <div
@@ -358,14 +352,20 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
         </div>
       </div>
 
-      {/* 3D Transform Flip Card */}
+      {/* 3D Transform Flip Card (Touch & Click Operable) */}
       <div
         onClick={handleFlip}
+        role="button"
+        tabIndex={0}
+        aria-label="Flashcard - Tap or Click to Flip"
         style={{
           perspective: '1200px',
           minHeight: '290px',
           marginBottom: '1.5rem',
           cursor: 'pointer',
+          width: '100%',
+          boxSizing: 'border-box',
+          WebkitTapHighlightColor: 'transparent',
         }}
       >
         <div
@@ -378,7 +378,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
             transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
           }}
         >
-          {/* Card Front (Question / Prompt) */}
+          {/* Front (Question) */}
           <div
             style={{
               position: 'absolute',
@@ -388,12 +388,13 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               backgroundColor: 'var(--bg-glass-card)',
               border: '1px solid var(--border-subtle)',
               borderRadius: 'var(--radius-lg)',
-              padding: '2.5rem 2rem',
+              padding: '1.75rem 1.25rem',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               boxShadow: 'var(--shadow-md)',
               backdropFilter: 'blur(16px)',
+              boxSizing: 'border-box',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -430,10 +431,10 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               )}
             </div>
 
-            <div style={{ margin: '1.5rem 0', textAlign: 'center' }}>
+            <div style={{ margin: '1.25rem 0', textAlign: 'center' }}>
               <h3
                 style={{
-                  fontSize: '1.35rem',
+                  fontSize: '1.25rem',
                   fontWeight: '700',
                   lineHeight: '1.55',
                   color: 'var(--text-primary)',
@@ -453,11 +454,11 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
                 fontSize: '0.82rem',
               }}
             >
-              <Eye size={14} /> Click card or press Space to reveal answer
+              <Eye size={14} /> Tap or click to reveal answer
             </div>
           </div>
 
-          {/* Card Back (Answer / Detailed Explanation) */}
+          {/* Back (Answer) */}
           <div
             style={{
               position: 'absolute',
@@ -468,12 +469,13 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               backgroundColor: 'var(--bg-surface)',
               border: '1px solid var(--border-glow)',
               borderRadius: 'var(--radius-lg)',
-              padding: '2.5rem 2rem',
+              padding: '1.75rem 1.25rem',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'space-between',
               boxShadow: 'var(--shadow-glow)',
               backdropFilter: 'blur(16px)',
+              boxSizing: 'border-box',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -491,14 +493,14 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
                 Explanation & Key Takeaway
               </span>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Click to flip back
+                Tap to flip back
               </span>
             </div>
 
-            <div style={{ margin: '1.5rem 0', textAlign: 'left' }}>
+            <div style={{ margin: '1.25rem 0', textAlign: 'left' }}>
               <p
                 style={{
-                  fontSize: '1.08rem',
+                  fontSize: '1.02rem',
                   lineHeight: '1.65',
                   color: 'var(--text-primary)',
                 }}
@@ -516,15 +518,16 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               }}
             >
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Mark self-assessment below:
+                Rate your understanding:
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Navigation & Self-Assessment Controls */}
+      {/* Navigation & Self-Assessment Controls (Responsive Footer >= 44px targets) */}
       <div
+        className="deck-nav-footer"
         style={{
           display: 'flex',
           justifyContent: 'space-between',
@@ -543,6 +546,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
             alignItems: 'center',
             gap: '6px',
             padding: '0.65rem 1.3rem',
+            minHeight: '44px',
             backgroundColor: 'var(--bg-surface)',
             color: safeIndex === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
             borderRadius: 'var(--radius-md)',
@@ -557,8 +561,8 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
           Previous
         </button>
 
-        {/* Self-Assessment Buttons */}
-        <div style={{ display: 'flex', gap: '10px' }}>
+        {/* Self-Assessment Buttons (min-height 44px) */}
+        <div style={{ display: 'flex', gap: '8px' }}>
           <button
             type="button"
             onClick={(e) => {
@@ -571,6 +575,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               alignItems: 'center',
               gap: '6px',
               padding: '0.65rem 1.15rem',
+              minHeight: '44px',
               backgroundColor: 'rgba(239, 68, 68, 0.12)',
               color: 'var(--accent-danger)',
               border: '1px solid rgba(239, 68, 68, 0.3)',
@@ -596,6 +601,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
               alignItems: 'center',
               gap: '6px',
               padding: '0.65rem 1.15rem',
+              minHeight: '44px',
               backgroundColor: 'rgba(16, 185, 129, 0.12)',
               color: 'var(--accent-success)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
@@ -619,6 +625,7 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
             alignItems: 'center',
             gap: '6px',
             padding: '0.65rem 1.3rem',
+            minHeight: '44px',
             backgroundColor: 'var(--bg-surface)',
             color: safeIndex === totalCards - 1 ? 'var(--text-muted)' : 'var(--text-primary)',
             borderRadius: 'var(--radius-md)',
@@ -643,12 +650,14 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
           gap: '8px',
           color: 'var(--text-muted)',
           fontSize: '0.78rem',
-          padding: '8px',
+          padding: '6px',
+          textAlign: 'center',
+          flexWrap: 'wrap',
         }}
       >
         <Keyboard size={14} />
         <span>
-          Keyboard controls: <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Space</kbd> / <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Enter</kbd> Flip · <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>←</kbd> <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>→</kbd> Navigate
+          <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Space</kbd> / <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Enter</kbd> Flip · <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>←</kbd> <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>→</kbd> Navigate
         </span>
       </div>
     </div>
