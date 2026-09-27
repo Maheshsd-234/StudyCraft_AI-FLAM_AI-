@@ -8,93 +8,157 @@ import {
   ArrowRight,
   Sparkles,
   Info,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
 
 /**
- * Interactive Quiz View with instant scoring and "Re-test wrong answers" feature
- * @param {{
- *   payload: {
- *     title: string,
- *     topic?: string,
- *     questions: Array<{
- *       id: string,
- *       question: string,
- *       options: Array<{ id: string, text: string }>,
- *       correctOptionId: string,
- *       explanation: string
- *     }>
- *   }
- * }} props
+ * QuizView: Interactive Assessment Component
+ *
+ * Props:
+ * - questions: Array<{ id: string, question: string, options: Array<{ id: string, text: string }>, correctOptionId: string, explanation: string }>
+ * - title?: string
+ * - topic?: string
+ * - payload?: object (fallback wrapper)
+ *
+ * Behavior:
+ * - One question at a time with 4 selectable choices.
+ * - "Check Answer" locks choice and reveals correct/incorrect + explanation.
+ * - "Next Question" advances to the next question.
+ * - At end: Displays score and breakdown of missed questions.
+ * - "Retest wrong answers" restarts quiz using ONLY missed questions (client-side state, no API call).
  */
-export default function QuizView({ payload }) {
-  const { title, topic, questions: initialQuestions } = payload;
+export default function QuizView({
+  questions: propQuestions,
+  title: propTitle,
+  topic: propTopic,
+  payload,
+}) {
+  const initialQuestions = propQuestions || payload?.questions || [];
+  const displayTitle = propTitle || payload?.title || 'Assessment Quiz';
+  const displayTopic = propTopic || payload?.topic || 'Interactive Assessment';
 
-  const [questions, setQuestions] = useState(initialQuestions || []);
+  // Active quiz state
+  const [activeQuestions, setActiveQuestions] = useState(initialQuestions);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedAnswers, setSelectedAnswers] = useState({}); // { [questionId]: optionId }
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [selectedOptionId, setSelectedOptionId] = useState(null);
+  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
+
+  // Stored answers history for summary calculation: { [questionId]: { selectedId: string, isCorrect: boolean } }
+  const [answersHistory, setAnswersHistory] = useState({});
+  const [isQuizComplete, setIsQuizComplete] = useState(false);
   const [isRetestMode, setIsRetestMode] = useState(false);
 
+  // Sync state when props change
   useEffect(() => {
-    setQuestions(initialQuestions || []);
+    setActiveQuestions(initialQuestions);
     setCurrentIndex(0);
-    setSelectedAnswers({});
-    setIsSubmitted(false);
+    setSelectedOptionId(null);
+    setIsAnswerRevealed(false);
+    setAnswersHistory({});
+    setIsQuizComplete(false);
     setIsRetestMode(false);
-  }, [payload]);
+  }, [initialQuestions]);
 
-  const currentQ = questions[currentIndex];
-  const totalQuestions = questions.length;
+  const totalQuestions = activeQuestions.length;
+  const currentQ = activeQuestions[currentIndex];
 
+  if (!activeQuestions || totalQuestions === 0) {
+    return (
+      <div
+        style={{
+          padding: '3rem 2rem',
+          textAlign: 'center',
+          backgroundColor: 'var(--bg-glass-card)',
+          borderRadius: 'var(--radius-lg)',
+          border: '1px solid var(--border-subtle)',
+          color: 'var(--text-muted)',
+        }}
+      >
+        <HelpCircle size={40} style={{ marginBottom: '1rem', opacity: 0.6 }} />
+        <h3 style={{ fontSize: '1.2rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+          No Quiz Questions Available
+        </h3>
+        <p style={{ fontSize: '0.9rem' }}>Generate a new quiz from your notes to start testing.</p>
+      </div>
+    );
+  }
+
+  // Handle selecting an option before submission
   const handleSelectOption = (optionId) => {
-    if (isSubmitted && !isRetestMode) return;
-    setSelectedAnswers((prev) => ({
+    if (isAnswerRevealed) return; // Locked after submission
+    setSelectedOptionId(optionId);
+  };
+
+  // Submit and lock the current question
+  const handleSubmitCurrentAnswer = () => {
+    if (!selectedOptionId || isAnswerRevealed) return;
+
+    const isCorrect = selectedOptionId === currentQ.correctOptionId;
+    setAnswersHistory((prev) => ({
       ...prev,
-      [currentQ.id]: optionId,
+      [currentQ.id]: {
+        selectedId: selectedOptionId,
+        isCorrect,
+        questionObj: currentQ,
+      },
     }));
+    setIsAnswerRevealed(true);
   };
 
-  const calculateScore = () => {
-    let score = 0;
-    questions.forEach((q) => {
-      if (selectedAnswers[q.id] === q.correctOptionId) {
-        score += 1;
-      }
+  // Move to next question or finalize quiz
+  const handleNextQuestion = () => {
+    if (currentIndex < totalQuestions - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      setSelectedOptionId(null);
+      setIsAnswerRevealed(false);
+    } else {
+      setIsQuizComplete(true);
+    }
+  };
+
+  // Extract list of missed questions
+  const getMissedQuestions = () => {
+    return activeQuestions.filter((q) => {
+      const record = answersHistory[q.id];
+      return record && !record.isCorrect;
     });
-    return score;
   };
 
-  const getWrongQuestions = () => {
-    return questions.filter((q) => selectedAnswers[q.id] !== q.correctOptionId);
-  };
-
+  // Retest ONLY wrong answers (client-side state without API call)
   const handleRetestWrong = () => {
-    const wrong = getWrongQuestions();
-    if (wrong.length === 0) return;
-    setQuestions(wrong);
+    const missed = getMissedQuestions();
+    if (missed.length === 0) return;
+
+    setActiveQuestions(missed);
     setCurrentIndex(0);
-    setSelectedAnswers({});
-    setIsSubmitted(false);
+    setSelectedOptionId(null);
+    setIsAnswerRevealed(false);
+    setAnswersHistory({});
+    setIsQuizComplete(false);
     setIsRetestMode(true);
   };
 
-  const handleRestartFull = () => {
-    setQuestions(initialQuestions || []);
+  // Retake full original quiz
+  const handleRetakeFull = () => {
+    setActiveQuestions(initialQuestions);
     setCurrentIndex(0);
-    setSelectedAnswers({});
-    setIsSubmitted(false);
+    setSelectedOptionId(null);
+    setIsAnswerRevealed(false);
+    setAnswersHistory({});
+    setIsQuizComplete(false);
     setIsRetestMode(false);
   };
 
-  if (!questions || questions.length === 0) {
-    return null;
-  }
-
-  // Quiz Summary View after completion
-  if (isSubmitted) {
-    const score = calculateScore();
-    const percentage = Math.round((score / totalQuestions) * 100);
-    const wrongQuestions = getWrongQuestions();
+  // ==========================================
+  // VIEW 1: Quiz Summary Screen
+  // ==========================================
+  if (isQuizComplete) {
+    const answeredEntries = Object.values(answersHistory);
+    const correctCount = answeredEntries.filter((a) => a.isCorrect).length;
+    const totalAnswered = activeQuestions.length;
+    const scorePercentage = Math.round((correctCount / totalAnswered) * 100);
+    const missedList = getMissedQuestions();
 
     return (
       <div
@@ -108,187 +172,205 @@ export default function QuizView({ payload }) {
           boxShadow: 'var(--shadow-md)',
         }}
       >
+        {/* Score Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
             style={{
-              width: '70px',
-              height: '70px',
+              width: '74px',
+              height: '74px',
               borderRadius: '50%',
               backgroundColor:
-                percentage >= 80
+                scorePercentage >= 80
                   ? 'rgba(16, 185, 129, 0.15)'
-                  : percentage >= 50
+                  : scorePercentage >= 50
                   ? 'rgba(245, 158, 11, 0.15)'
                   : 'rgba(239, 68, 68, 0.15)',
               display: 'inline-flex',
               alignItems: 'center',
               justifyContent: 'center',
               marginBottom: '1rem',
+              border: `1.5px solid ${
+                scorePercentage >= 80
+                  ? 'rgba(16, 185, 129, 0.3)'
+                  : scorePercentage >= 50
+                  ? 'rgba(245, 158, 11, 0.3)'
+                  : 'rgba(239, 68, 68, 0.3)'
+              }`,
             }}
           >
             <Award
-              size={36}
+              size={38}
               color={
-                percentage >= 80
+                scorePercentage >= 80
                   ? 'var(--accent-success)'
-                  : percentage >= 50
+                  : scorePercentage >= 50
                   ? 'var(--accent-warning)'
                   : 'var(--accent-danger)'
               }
             />
           </div>
 
-          <h2 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.5rem' }}>
-            {percentage >= 80
-              ? 'Outstanding Performance!'
-              : percentage >= 50
+          <h2 style={{ fontSize: '1.75rem', fontWeight: '800', marginBottom: '0.4rem', letterSpacing: '-0.02em' }}>
+            {scorePercentage === 100
+              ? 'Perfect Score! 🎯'
+              : scorePercentage >= 80
+              ? 'Great Mastery!'
+              : scorePercentage >= 50
               ? 'Good Effort!'
-              : 'Keep Practicing!'}
+              : 'Needs Further Review'}
           </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '1rem' }}>
-            You scored <strong style={{ color: 'var(--text-primary)' }}>{score}</strong> out of{' '}
-            <strong style={{ color: 'var(--text-primary)' }}>{totalQuestions}</strong> ({percentage}%)
+
+          <p style={{ color: 'var(--text-secondary)', fontSize: '1.05rem' }}>
+            You scored <strong style={{ color: 'var(--text-primary)' }}>{correctCount}</strong> out of{' '}
+            <strong style={{ color: 'var(--text-primary)' }}>{totalAnswered}</strong> ({scorePercentage}%)
+            {isRetestMode && ' in Wrong-Answer Retest Mode'}
           </p>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Controls */}
         <div
           style={{
             display: 'flex',
             justifyContent: 'center',
-            gap: '1rem',
+            gap: '12px',
             marginBottom: '2.5rem',
             flexWrap: 'wrap',
           }}
         >
-          {wrongQuestions.length > 0 && (
+          {missedList.length > 0 && (
             <button
+              type="button"
               onClick={handleRetestWrong}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '8px',
-                padding: '0.75rem 1.4rem',
+                padding: '0.75rem 1.6rem',
                 backgroundColor: 'var(--accent-warning)',
                 color: '#000',
                 borderRadius: 'var(--radius-md)',
                 fontWeight: '700',
-                fontSize: '0.9rem',
-                boxShadow: '0 4px 14px rgba(245, 158, 11, 0.3)',
+                fontSize: '0.92rem',
+                boxShadow: '0 4px 16px rgba(245, 158, 11, 0.35)',
+                cursor: 'pointer',
               }}
             >
               <RotateCcw size={16} />
-              Re-test {wrongQuestions.length} Wrong {wrongQuestions.length === 1 ? 'Answer' : 'Answers'}
+              Retest {missedList.length} Wrong {missedList.length === 1 ? 'Answer' : 'Answers'}
             </button>
           )}
 
           <button
-            onClick={handleRestartFull}
+            type="button"
+            onClick={handleRetakeFull}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '0.75rem 1.4rem',
+              padding: '0.75rem 1.6rem',
               backgroundColor: 'var(--bg-surface)',
               color: 'var(--text-primary)',
               borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border-subtle)',
               fontWeight: '600',
-              fontSize: '0.9rem',
+              fontSize: '0.92rem',
+              cursor: 'pointer',
             }}
           >
-            <RotateCcw size={16} />
-            Retake Entire Quiz
+            <RefreshCw size={16} />
+            Retake Full Quiz ({initialQuestions.length})
           </button>
         </div>
 
-        {/* Question Review Breakdown */}
-        <h3
-          style={{
-            fontSize: '1.1rem',
-            fontWeight: '700',
-            marginBottom: '1rem',
-            paddingBottom: '0.5rem',
-            borderBottom: '1px solid var(--border-subtle)',
-          }}
-        >
-          Answer Review & Explanations
-        </h3>
+        {/* Missed Questions Breakdown */}
+        {missedList.length > 0 && (
+          <div>
+            <h3
+              style={{
+                fontSize: '1.15rem',
+                fontWeight: '700',
+                marginBottom: '1rem',
+                paddingBottom: '0.5rem',
+                borderBottom: '1px solid var(--border-subtle)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              <XCircle size={18} color="var(--accent-danger)" />
+              Missed Questions for Review ({missedList.length})
+            </h3>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          {questions.map((q, idx) => {
-            const userSelected = selectedAnswers[q.id];
-            const isCorrect = userSelected === q.correctOptionId;
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {missedList.map((q, idx) => {
+                const answerRecord = answersHistory[q.id];
+                const selectedOpt = q.options.find((o) => o.id === answerRecord?.selectedId);
+                const correctOpt = q.options.find((o) => o.id === q.correctOptionId);
 
-            return (
-              <div
-                key={q.id || idx}
-                style={{
-                  padding: '1.25rem',
-                  borderRadius: 'var(--radius-md)',
-                  backgroundColor: 'var(--bg-secondary)',
-                  border: `1px solid ${isCorrect ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '0.75rem' }}>
-                  {isCorrect ? (
-                    <CheckCircle2 size={20} color="var(--accent-success)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  ) : (
-                    <XCircle size={20} color="var(--accent-danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  )}
-                  <div>
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: '600' }}>
-                      Question {idx + 1}
-                    </span>
-                    <h4 style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                      {q.question}
-                    </h4>
-                  </div>
-                </div>
-
-                {/* Selected vs Correct */}
-                <div style={{ marginLeft: '30px', fontSize: '0.88rem' }}>
-                  <p style={{ color: isCorrect ? 'var(--accent-success)' : 'var(--accent-danger)', marginBottom: '0.25rem' }}>
-                    <strong>Your choice:</strong>{' '}
-                    {q.options.find((o) => o.id === userSelected)?.text || 'Not answered'}
-                  </p>
-                  {!isCorrect && (
-                    <p style={{ color: 'var(--accent-success)', marginBottom: '0.5rem' }}>
-                      <strong>Correct answer:</strong>{' '}
-                      {q.options.find((o) => o.id === q.correctOptionId)?.text}
-                    </p>
-                  )}
-
-                  {q.explanation && (
-                    <div
-                      style={{
-                        marginTop: '0.5rem',
-                        padding: '0.6rem 0.8rem',
-                        backgroundColor: 'var(--bg-primary)',
-                        borderRadius: 'var(--radius-sm)',
-                        color: 'var(--text-secondary)',
-                        fontSize: '0.82rem',
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '6px',
-                      }}
-                    >
-                      <Info size={15} style={{ flexShrink: 0, marginTop: '1px' }} />
-                      <span>{q.explanation}</span>
+                return (
+                  <div
+                    key={q.id || idx}
+                    style={{
+                      padding: '1.35rem',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                    }}
+                  >
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--accent-danger)', fontWeight: '700' }}>
+                        Missed #{idx + 1}
+                      </span>
+                      <h4 style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--text-primary)', marginTop: '2px' }}>
+                        {q.question}
+                      </h4>
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.88rem', marginBottom: '0.75rem' }}>
+                      <div style={{ color: 'var(--accent-danger)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <XCircle size={14} />
+                        <span><strong>Your Choice:</strong> {selectedOpt ? `${selectedOpt.id}. ${selectedOpt.text}` : 'None'}</span>
+                      </div>
+                      <div style={{ color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <CheckCircle2 size={14} />
+                        <span><strong>Correct Answer:</strong> {correctOpt ? `${correctOpt.id}. ${correctOpt.text}` : q.correctOptionId}</span>
+                      </div>
+                    </div>
+
+                    {q.explanation && (
+                      <div
+                        style={{
+                          padding: '0.75rem 1rem',
+                          backgroundColor: 'var(--bg-primary)',
+                          borderRadius: 'var(--radius-sm)',
+                          border: '1px solid var(--border-subtle)',
+                          color: 'var(--text-secondary)',
+                          fontSize: '0.83rem',
+                          lineHeight: '1.5',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '8px',
+                        }}
+                      >
+                        <Info size={16} color="var(--accent-secondary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                        <span>{q.explanation}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
-  // Active Quiz Question Flow
-  const hasSelectedCurrent = selectedAnswers[currentQ?.id] !== undefined;
+  // ==========================================
+  // VIEW 2: Active Single Question Flow
+  // ==========================================
   const isLastQuestion = currentIndex === totalQuestions - 1;
+  const isSelected = Boolean(selectedOptionId);
 
   return (
     <div
@@ -302,7 +384,7 @@ export default function QuizView({ payload }) {
         boxShadow: 'var(--shadow-md)',
       }}
     >
-      {/* Quiz Header */}
+      {/* Quiz Header Info */}
       <div
         style={{
           display: 'flex',
@@ -320,21 +402,22 @@ export default function QuizView({ payload }) {
                 fontSize: '0.75rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.08em',
-                fontWeight: '700',
+                fontWeight: '800',
                 color: isRetestMode ? 'var(--accent-warning)' : 'var(--accent-purple)',
                 backgroundColor: isRetestMode ? 'rgba(245, 158, 11, 0.15)' : 'rgba(168, 85, 247, 0.15)',
                 padding: '2px 8px',
                 borderRadius: 'var(--radius-sm)',
+                border: `1px solid ${isRetestMode ? 'rgba(245, 158, 11, 0.3)' : 'rgba(168, 85, 247, 0.3)'}`,
               }}
             >
-              {isRetestMode ? 'Wrong Answer Re-test' : 'Assessment Quiz'}
+              {isRetestMode ? 'Retesting Wrong Answers' : 'Assessment Quiz'}
             </span>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              {topic || 'Topic Assessment'}
+            <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+              {displayTopic}
             </span>
           </div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginTop: '0.25rem' }}>
-            {title}
+          <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginTop: '0.25rem', letterSpacing: '-0.02em' }}>
+            {displayTitle}
           </h2>
         </div>
 
@@ -342,7 +425,8 @@ export default function QuizView({ payload }) {
           style={{
             fontFamily: 'var(--font-mono)',
             fontSize: '0.85rem',
-            color: 'var(--text-secondary)',
+            fontWeight: '700',
+            color: 'var(--text-primary)',
             backgroundColor: 'var(--bg-surface)',
             padding: '4px 10px',
             borderRadius: 'var(--radius-sm)',
@@ -353,7 +437,7 @@ export default function QuizView({ payload }) {
         </span>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress Bar */}
       <div
         style={{
           height: '4px',
@@ -379,7 +463,7 @@ export default function QuizView({ payload }) {
           style={{
             fontSize: '1.25rem',
             fontWeight: '700',
-            lineHeight: '1.5',
+            lineHeight: '1.55',
             color: 'var(--text-primary)',
           }}
         >
@@ -387,116 +471,170 @@ export default function QuizView({ payload }) {
         </h3>
       </div>
 
-      {/* Answer Options */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
-        {currentQ.options.map((option) => {
-          const isChosen = selectedAnswers[currentQ.id] === option.id;
+      {/* 4 Selectable Choices */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', marginBottom: '1.75rem' }}>
+        {currentQ.options.map((opt) => {
+          const isChosen = selectedOptionId === opt.id;
+          const isCorrect = opt.id === currentQ.correctOptionId;
+
+          // Compute styles depending on revealed state
+          let itemBg = 'var(--bg-secondary)';
+          let itemBorder = 'var(--border-subtle)';
+          let badgeBg = 'var(--bg-surface)';
+          let badgeColor = 'var(--text-secondary)';
+
+          if (isAnswerRevealed) {
+            if (isCorrect) {
+              itemBg = 'rgba(16, 185, 129, 0.15)';
+              itemBorder = 'var(--accent-success)';
+              badgeBg = 'var(--accent-success)';
+              badgeColor = '#fff';
+            } else if (isChosen && !isCorrect) {
+              itemBg = 'rgba(239, 68, 68, 0.15)';
+              itemBorder = 'var(--accent-danger)';
+              badgeBg = 'var(--accent-danger)';
+              badgeColor = '#fff';
+            }
+          } else if (isChosen) {
+            itemBg = 'rgba(99, 102, 241, 0.15)';
+            itemBorder = 'var(--accent-primary)';
+            badgeBg = 'var(--accent-primary)';
+            badgeColor = '#fff';
+          }
 
           return (
             <button
-              key={option.id}
-              onClick={() => handleSelectOption(option.id)}
+              key={opt.id}
+              type="button"
+              disabled={isAnswerRevealed}
+              onClick={() => handleSelectOption(opt.id)}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
+                justifyContent: 'space-between',
                 padding: '1rem 1.25rem',
                 borderRadius: 'var(--radius-md)',
-                backgroundColor: isChosen ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-secondary)',
-                border: `1.5px solid ${isChosen ? 'var(--accent-primary)' : 'var(--border-subtle)'}`,
+                backgroundColor: itemBg,
+                border: `1.5px solid ${itemBorder}`,
                 textAlign: 'left',
                 color: 'var(--text-primary)',
                 transition: 'var(--transition-fast)',
-                cursor: 'pointer',
+                cursor: isAnswerRevealed ? 'default' : 'pointer',
               }}
               onMouseEnter={(e) => {
-                if (!isChosen) e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                if (!isAnswerRevealed && !isChosen) {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                }
               }}
               onMouseLeave={(e) => {
-                if (!isChosen) e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                if (!isAnswerRevealed && !isChosen) {
+                  e.currentTarget.style.backgroundColor = 'var(--bg-secondary)';
+                }
               }}
             >
-              <span
-                style={{
-                  width: '28px',
-                  height: '28px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '0.85rem',
-                  fontWeight: '700',
-                  backgroundColor: isChosen ? 'var(--accent-primary)' : 'var(--bg-surface)',
-                  color: isChosen ? '#fff' : 'var(--text-secondary)',
-                  border: isChosen ? 'none' : '1px solid var(--border-subtle)',
-                  flexShrink: 0,
-                }}
-              >
-                {option.id}
-              </span>
-              <span style={{ fontSize: '0.95rem', lineHeight: '1.4' }}>{option.text}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span
+                  style={{
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.85rem',
+                    fontWeight: '800',
+                    backgroundColor: badgeBg,
+                    color: badgeColor,
+                    flexShrink: 0,
+                    transition: 'var(--transition-fast)',
+                  }}
+                >
+                  {opt.id}
+                </span>
+                <span style={{ fontSize: '0.95rem', lineHeight: '1.45' }}>{opt.text}</span>
+              </div>
+
+              {/* Status icon if revealed */}
+              {isAnswerRevealed && isCorrect && (
+                <CheckCircle2 size={20} color="var(--accent-success)" style={{ flexShrink: 0, marginLeft: '8px' }} />
+              )}
+              {isAnswerRevealed && isChosen && !isCorrect && (
+                <XCircle size={20} color="var(--accent-danger)" style={{ flexShrink: 0, marginLeft: '8px' }} />
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Navigation Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <button
-          onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
-          disabled={currentIndex === 0}
+      {/* Revealed Explanation Banner */}
+      {isAnswerRevealed && (
+        <div
+          className="animate-fade-in"
           style={{
-            padding: '0.6rem 1.2rem',
-            backgroundColor: 'var(--bg-surface)',
-            color: currentIndex === 0 ? 'var(--text-muted)' : 'var(--text-primary)',
+            padding: '1rem 1.25rem',
             borderRadius: 'var(--radius-md)',
-            border: '1px solid var(--border-subtle)',
-            fontSize: '0.9rem',
-            opacity: currentIndex === 0 ? 0.4 : 1,
-            cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
+            backgroundColor: selectedOptionId === currentQ.correctOptionId ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+            border: `1px solid ${selectedOptionId === currentQ.correctOptionId ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            marginBottom: '1.75rem',
           }}
         >
-          Previous
-        </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '0.35rem' }}>
+            <Info size={16} color={selectedOptionId === currentQ.correctOptionId ? 'var(--accent-success)' : 'var(--accent-danger)'} />
+            <strong style={{ fontSize: '0.9rem', color: selectedOptionId === currentQ.correctOptionId ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
+              {selectedOptionId === currentQ.correctOptionId ? 'Correct!' : 'Incorrect Choice'}
+            </strong>
+          </div>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: '1.5' }}>
+            {currentQ.explanation}
+          </p>
+        </div>
+      )}
 
-        {isLastQuestion ? (
+      {/* Control Buttons */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        {!isAnswerRevealed ? (
           <button
-            onClick={() => setIsSubmitted(true)}
-            disabled={!hasSelectedCurrent}
+            type="button"
+            disabled={!isSelected}
+            onClick={handleSubmitCurrentAnswer}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
-              padding: '0.7rem 1.6rem',
-              backgroundColor: 'var(--accent-success)',
+              padding: '0.75rem 1.6rem',
+              backgroundColor: isSelected ? 'var(--accent-primary)' : 'var(--bg-surface)',
+              color: isSelected ? '#fff' : 'var(--text-muted)',
+              borderRadius: 'var(--radius-md)',
+              fontWeight: '700',
+              fontSize: '0.95rem',
+              cursor: isSelected ? 'pointer' : 'not-allowed',
+              opacity: isSelected ? 1 : 0.5,
+              transition: 'var(--transition-fast)',
+              boxShadow: isSelected ? '0 4px 16px rgba(99, 102, 241, 0.35)' : 'none',
+            }}
+          >
+            <Check size={16} />
+            Submit Answer
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handleNextQuestion}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '0.75rem 1.6rem',
+              backgroundColor: 'var(--accent-primary)',
               color: '#fff',
               borderRadius: 'var(--radius-md)',
               fontWeight: '700',
               fontSize: '0.95rem',
-              opacity: hasSelectedCurrent ? 1 : 0.5,
-              cursor: hasSelectedCurrent ? 'pointer' : 'not-allowed',
-              boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(99, 102, 241, 0.35)',
             }}
           >
-            <Sparkles size={16} />
-            Submit Quiz
-          </button>
-        ) : (
-          <button
-            onClick={() => setCurrentIndex((prev) => Math.min(totalQuestions - 1, prev + 1))}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '0.6rem 1.4rem',
-              backgroundColor: 'var(--accent-primary)',
-              color: '#fff',
-              borderRadius: 'var(--radius-md)',
-              fontWeight: '600',
-              fontSize: '0.9rem',
-            }}
-          >
-            Next
+            {isLastQuestion ? 'View Final Results' : 'Next Question'}
             <ArrowRight size={16} />
           </button>
         )}
