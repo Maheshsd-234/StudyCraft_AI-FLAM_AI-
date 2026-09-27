@@ -1,47 +1,62 @@
 import React, { useState } from 'react';
-import { Sparkles, Layers, HelpCircle, ArrowRight, BookOpen, Lightbulb } from 'lucide-react';
+import { Sparkles, Layers, HelpCircle, ArrowRight, Lightbulb, AlertCircle } from 'lucide-react';
 
 const SAMPLE_PROMPTS = [
   {
-    label: 'React Hooks & Lifecycle',
-    text: 'Key React Hooks: useState, useEffect, useMemo, useCallback, and useRef. Explain lifecycle equivalents, memoization rules, and common stale closure traps.',
+    label: 'React Lifecycle & Hooks',
+    text: 'Core React concepts: useState, useEffect, useMemo, useCallback, useRef, stale closures, dependency array rules, and component mounting vs unmounting lifecycles.',
   },
   {
-    label: 'HTTP & REST APIs',
-    text: 'Core concepts of HTTP protocols, status codes (2xx, 3xx, 4xx, 5xx), RESTful architecture principles, idempotency, and CORS handling.',
+    label: 'Web Security & Auth',
+    text: 'Web application security fundamentals: JWT vs Session cookies, CSRF protection with SameSite tokens, XSS mitigation with CSP, and HTTPS TLS handshakes.',
   },
   {
-    label: 'Data Structures & Algorithms',
-    text: 'Big-O complexity notation, differences between Array and LinkedList, Hash Table collision resolution, and Binary Search Tree invariants.',
+    label: 'Database Indexing & ACID',
+    text: 'Relational database indexing principles: B-Trees, Clustered vs Non-Clustered indices, ACID transaction guarantees, and isolation levels (Read Committed vs Serializable).',
   },
 ];
 
 /**
- * Free-form text input and mode selection component
+ * Free-form text input + mode toggle + generate button
+ *
  * @param {{
- *   onSubmit: (prompt: string, mode: 'flashcards' | 'quiz') => void,
+ *   onSubmit: (notes: string, mode: 'flashcards' | 'quiz') => void,
  *   isLoading: boolean,
  *   currentMode: 'flashcards' | 'quiz',
- *   onModeChange: (mode: 'flashcards' | 'quiz') => void
+ *   onModeChange: (mode: 'flashcards' | 'quiz') => void,
+ *   initialNotes?: string
  * }} props
  */
-export default function PromptInput({ onSubmit, isLoading, currentMode, onModeChange }) {
-  const [input, setInput] = useState('');
+export default function PromptInput({
+  onSubmit,
+  isLoading,
+  currentMode,
+  onModeChange,
+  initialNotes = '',
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [hasInteracted, setHasInteracted] = useState(false);
+
+  const trimmed = notes.trim();
+  const isWhitespaceOnly = notes.length > 0 && trimmed.length === 0;
+  const isInputValid = trimmed.length > 0;
 
   const handleSubmit = (e) => {
     e?.preventDefault();
-    if (!input.trim() || isLoading) return;
-    onSubmit(input.trim(), currentMode);
+    setHasInteracted(true);
+    if (!isInputValid || isLoading) return;
+    onSubmit(trimmed, currentMode);
   };
 
   const handleKeyDown = (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      handleSubmit();
+      handleSubmit(e);
     }
   };
 
   const handleSampleClick = (sampleText) => {
-    setInput(sampleText);
+    setNotes(sampleText);
+    setHasInteracted(false);
   };
 
   return (
@@ -57,7 +72,7 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
       }}
     >
       <form onSubmit={handleSubmit}>
-        {/* Mode Selector */}
+        {/* Header: Mode Switcher */}
         <div
           style={{
             display: 'flex',
@@ -69,9 +84,8 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <BookOpen size={18} color="var(--accent-primary)" />
-            <span style={{ fontSize: '0.9rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-              Choose Output Mode:
+            <span style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--text-primary)' }}>
+              Target Format:
             </span>
           </div>
 
@@ -86,37 +100,43 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
           >
             <button
               type="button"
+              disabled={isLoading}
               onClick={() => onModeChange('flashcards')}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '0.45rem 1rem',
+                padding: '0.5rem 1.1rem',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.85rem',
-                fontWeight: currentMode === 'flashcards' ? '600' : '500',
+                fontWeight: currentMode === 'flashcards' ? '700' : '500',
                 backgroundColor: currentMode === 'flashcards' ? 'var(--accent-primary)' : 'transparent',
                 color: currentMode === 'flashcards' ? '#fff' : 'var(--text-secondary)',
                 transition: 'var(--transition-fast)',
+                opacity: isLoading ? 0.6 : 1,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
               }}
             >
               <Layers size={15} />
-              Flashcards Set
+              Flashcard Deck
             </button>
             <button
               type="button"
+              disabled={isLoading}
               onClick={() => onModeChange('quiz')}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '0.45rem 1rem',
+                padding: '0.5rem 1.1rem',
                 borderRadius: 'var(--radius-sm)',
                 fontSize: '0.85rem',
-                fontWeight: currentMode === 'quiz' ? '600' : '500',
+                fontWeight: currentMode === 'quiz' ? '700' : '500',
                 backgroundColor: currentMode === 'quiz' ? 'var(--accent-primary)' : 'transparent',
                 color: currentMode === 'quiz' ? '#fff' : 'var(--text-secondary)',
                 transition: 'var(--transition-fast)',
+                opacity: isLoading ? 0.6 : 1,
+                cursor: isLoading ? 'not-allowed' : 'pointer',
               }}
             >
               <HelpCircle size={15} />
@@ -128,40 +148,71 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
         {/* Free-form Textarea */}
         <div style={{ position: 'relative' }}>
           <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
+            value={notes}
+            onChange={(e) => {
+              setNotes(e.target.value);
+              setHasInteracted(true);
+            }}
             onKeyDown={handleKeyDown}
             disabled={isLoading}
             placeholder={
               currentMode === 'flashcards'
-                ? 'Paste your lecture notes, article excerpts, syllabus, or any technical topic here to turn into flashcards...'
-                : 'Paste your topic, revision notes, or chapter text to generate an assessment quiz with instant scoring...'
+                ? 'Paste free-form notes, concepts, definitions, or raw study text here to synthesize into 3D flashcards...'
+                : 'Paste notes or a topic here to generate a scored interactive assessment quiz...'
             }
             rows={5}
             style={{
               width: '100%',
               backgroundColor: 'var(--bg-secondary)',
-              border: '1px solid var(--border-subtle)',
+              border: `1px solid ${isWhitespaceOnly ? 'var(--accent-danger)' : 'var(--border-subtle)'}`,
               borderRadius: 'var(--radius-md)',
               color: 'var(--text-primary)',
               padding: '1rem',
               fontSize: '0.95rem',
               lineHeight: '1.6',
               resize: 'vertical',
+              opacity: isLoading ? 0.6 : 1,
               transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-focus)';
-              e.currentTarget.style.boxShadow = '0 0 0 3px var(--border-glow)';
+              if (!isWhitespaceOnly) {
+                e.currentTarget.style.borderColor = 'var(--border-focus)';
+                e.currentTarget.style.boxShadow = '0 0 0 3px var(--border-glow)';
+              }
             }}
             onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-subtle)';
-              e.currentTarget.style.boxShadow = 'none';
+              if (!isWhitespaceOnly) {
+                e.currentTarget.style.borderColor = 'var(--border-subtle)';
+                e.currentTarget.style.boxShadow = 'none';
+              }
             }}
           />
+
+          {/* Inline whitespace warning */}
+          {isWhitespaceOnly && hasInteracted && (
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '12px',
+                right: '12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'var(--accent-danger)',
+                fontSize: '0.78rem',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                padding: '2px 8px',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+              }}
+            >
+              <AlertCircle size={13} />
+              Input cannot be whitespace only
+            </div>
+          )}
         </div>
 
-        {/* Action Controls & Quick Samples */}
+        {/* Footer: Quick Samples & Submit */}
         <div
           style={{
             display: 'flex',
@@ -172,15 +223,24 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
             gap: '1rem',
           }}
         >
-          {/* Samples */}
+          {/* Quick Presets */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Lightbulb size={13} /> Try:
+            <span
+              style={{
+                fontSize: '0.8rem',
+                color: 'var(--text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <Lightbulb size={13} /> Quick Topics:
             </span>
             {SAMPLE_PROMPTS.map((sample, idx) => (
               <button
                 key={idx}
                 type="button"
+                disabled={isLoading}
                 onClick={() => handleSampleClick(sample.text)}
                 style={{
                   fontSize: '0.75rem',
@@ -190,10 +250,14 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
                   color: 'var(--text-secondary)',
                   border: '1px solid var(--border-subtle)',
                   transition: 'var(--transition-fast)',
+                  opacity: isLoading ? 0.5 : 1,
+                  cursor: isLoading ? 'not-allowed' : 'pointer',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
-                  e.currentTarget.style.color = 'var(--text-primary)';
+                  if (!isLoading) {
+                    e.currentTarget.style.backgroundColor = 'var(--bg-surface-hover)';
+                    e.currentTarget.style.color = 'var(--text-primary)';
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'var(--bg-surface)';
@@ -205,34 +269,35 @@ export default function PromptInput({ onSubmit, isLoading, currentMode, onModeCh
             ))}
           </div>
 
-          {/* Submit Button */}
+          {/* Generate Button */}
           <button
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={!isInputValid || isLoading}
             style={{
               display: 'inline-flex',
               alignItems: 'center',
               gap: '8px',
               padding: '0.75rem 1.6rem',
-              backgroundColor: 'var(--accent-primary)',
-              color: '#fff',
+              backgroundColor: isInputValid && !isLoading ? 'var(--accent-primary)' : 'var(--bg-surface)',
+              color: isInputValid && !isLoading ? '#fff' : 'var(--text-muted)',
               borderRadius: 'var(--radius-md)',
-              fontWeight: '600',
+              fontWeight: '700',
               fontSize: '0.95rem',
-              opacity: !input.trim() || isLoading ? 0.5 : 1,
-              cursor: !input.trim() || isLoading ? 'not-allowed' : 'pointer',
+              opacity: !isInputValid || isLoading ? 0.5 : 1,
+              cursor: !isInputValid || isLoading ? 'not-allowed' : 'pointer',
               transition: 'var(--transition-fast)',
-              boxShadow: input.trim() && !isLoading ? '0 4px 20px rgba(99, 102, 241, 0.4)' : 'none',
+              boxShadow: isInputValid && !isLoading ? '0 4px 20px rgba(99, 102, 241, 0.4)' : 'none',
+              border: '1px solid var(--border-subtle)',
             }}
             onMouseEnter={(e) => {
-              if (input.trim() && !isLoading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)';
+              if (isInputValid && !isLoading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--accent-primary)';
+              if (isInputValid && !isLoading) e.currentTarget.style.backgroundColor = 'var(--accent-primary)';
             }}
           >
             <Sparkles size={16} />
-            {isLoading ? 'Generating...' : `Generate ${currentMode === 'flashcards' ? 'Flashcards' : 'Quiz'}`}
+            {isLoading ? 'Generating Structure...' : `Generate ${currentMode === 'flashcards' ? 'Flashcards' : 'Quiz'}`}
             <ArrowRight size={16} />
           </button>
         </div>

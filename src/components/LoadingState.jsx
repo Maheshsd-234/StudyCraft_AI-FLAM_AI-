@@ -1,15 +1,21 @@
 import React from 'react';
-import { Loader2, Sparkles } from 'lucide-react';
+import { Loader2, Sparkles, Layers, HelpCircle } from 'lucide-react';
 
 /**
- * Shared Loading State component with smooth animations and status hints
- * @param {{ mode?: 'flashcards' | 'quiz', message?: string }} props
+ * Shared Loading State component with mode-aware status messages and animated feedback
+ *
+ * @param {{
+ *   mode?: 'flashcards' | 'quiz',
+ *   message?: string
+ * }} props
  */
 export default function LoadingState({ mode = 'flashcards', message }) {
-  const defaultMessage =
-    mode === 'quiz'
-      ? 'Synthesizing knowledge into challenging quiz questions...'
-      : 'Extracting key concepts & generating interactive flashcards...';
+  const isQuiz = mode === 'quiz';
+  const Icon = isQuiz ? HelpCircle : Layers;
+
+  const defaultMessage = isQuiz
+    ? 'Formulating scenario-based questions and validating distractors...'
+    : 'Extracting key definitions & organizing into structured 3D flashcards...';
 
   return (
     <div
@@ -22,10 +28,10 @@ export default function LoadingState({ mode = 'flashcards', message }) {
         borderRadius: 'var(--radius-lg)',
         backgroundColor: 'var(--bg-glass-card)',
         border: '1px solid var(--border-subtle)',
-        backdropFilter: 'blur(12px)',
+        backdropFilter: 'blur(16px)',
         boxShadow: 'var(--shadow-md)',
         textAlign: 'center',
-        margin: '2rem 0',
+        margin: '1.5rem 0',
         minHeight: '260px',
       }}
       className="animate-fade-in"
@@ -38,20 +44,21 @@ export default function LoadingState({ mode = 'flashcards', message }) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          width: '72px',
-          height: '72px',
+          width: '76px',
+          height: '76px',
           borderRadius: '50%',
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.2))',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(6, 182, 212, 0.25))',
           marginBottom: '1.5rem',
           border: '1px solid var(--border-glow)',
+          boxShadow: 'var(--shadow-glow)',
         }}
       >
         <Loader2
-          size={36}
+          size={38}
           color="var(--accent-primary)"
           className="animate-spin"
         />
-        <Sparkles
+        <Icon
           size={18}
           color="var(--accent-secondary)"
           style={{
@@ -65,20 +72,21 @@ export default function LoadingState({ mode = 'flashcards', message }) {
       <h3
         style={{
           fontSize: '1.25rem',
-          fontWeight: '700',
+          fontWeight: '800',
           color: 'var(--text-primary)',
-          marginBottom: '0.5rem',
+          marginBottom: '0.4rem',
           letterSpacing: '-0.02em',
         }}
       >
-        Structuring AI Knowledge
+        Generating {isQuiz ? 'Assessment Quiz' : 'Flashcard Deck'}
       </h3>
+
       <p
         style={{
           color: 'var(--text-secondary)',
           fontSize: '0.95rem',
-          maxWidth: '420px',
-          lineHeight: '1.5',
+          maxWidth: '440px',
+          lineHeight: '1.55',
         }}
       >
         {message || defaultMessage}
@@ -87,9 +95,13 @@ export default function LoadingState({ mode = 'flashcards', message }) {
       <div
         style={{
           marginTop: '1.5rem',
-          display: 'flex',
-          gap: '6px',
+          display: 'inline-flex',
+          gap: '8px',
           alignItems: 'center',
+          backgroundColor: 'var(--bg-primary)',
+          padding: '4px 12px',
+          borderRadius: '999px',
+          border: '1px solid var(--border-subtle)',
         }}
       >
         <span
@@ -104,12 +116,12 @@ export default function LoadingState({ mode = 'flashcards', message }) {
         />
         <span
           style={{
-            fontSize: '0.8rem',
+            fontSize: '0.78rem',
             color: 'var(--text-muted)',
             fontFamily: 'var(--font-mono)',
           }}
         >
-          Validating JSON shape & schema constraints
+          Enforcing schema constraints & defensive checks
         </span>
       </div>
     </div>

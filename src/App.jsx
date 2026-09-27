@@ -1,85 +1,80 @@
 import React, { useState, useRef } from 'react';
-import { Sparkles, BrainCircuit, GraduationCap } from 'lucide-react';
+import { BrainCircuit, GraduationCap } from 'lucide-react';
 import PromptInput from './components/PromptInput.jsx';
 import ResultView from './components/ResultView.jsx';
 import LoadingState from './components/LoadingState.jsx';
 import ErrorState from './components/ErrorState.jsx';
-import { generateStudyMaterial } from './lib/api.js';
-import { validateResult } from './lib/validateResult.js';
+import { generate } from './lib/api.js';
 
 export default function App() {
+  const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
+  const [data, setData] = useState(null);
+  const [error, setError] = useState(null); // { kind, message, details }
   const [mode, setMode] = useState('flashcards'); // 'flashcards' | 'quiz'
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [errorDetails, setErrorDetails] = useState(null);
-  const [parsedResult, setParsedResult] = useState(null);
-  const [lastPrompt, setLastPrompt] = useState('');
+  const [lastInput, setLastInput] = useState({ notes: '', mode: 'flashcards' });
 
-  // Guard against stale asynchronous responses race condition
+  // Stale-response guard & request cancellation refs
   const requestId = useRef(0);
+  const abortControllerRef = useRef(null);
 
-  const handleGenerate = async (promptText, selectedMode = mode) => {
-    const currentId = ++requestId.current;
-    setIsLoading(true);
+  async function handleGenerate(inputNotes, selectedMode = mode) {
+    // 1. Cancel in-flight request if any
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    // 2. Increment request ID guard
+    const id = ++requestId.current;
+
+    setStatus('loading');
     setError(null);
-    setErrorDetails(null);
-    setLastPrompt(promptText);
+    setLastInput({ notes: inputNotes, mode: selectedMode });
 
     try {
-      // 1. Call backend proxy (API key stays on server)
-      const response = await generateStudyMaterial({
-        prompt: promptText,
-        mode: selectedMode,
-      });
+      const validatedData = await generate(inputNotes, selectedMode, controller.signal);
 
-      // Stale response guard: Ignore if user triggered a newer request in the meantime
-      if (currentId !== requestId.current) {
-        return;
-      }
+      // Stale response check: discard if a newer request was dispatched
+      if (id !== requestId.current) return;
 
-      // 2. Validate structured output defensively before rendering
-      const validation = validateResult(selectedMode, response.data || response.rawText);
-
-      if (!validation.isValid) {
-        setError(validation.error || 'The model returned data in an invalid format.');
-        setErrorDetails(
-          typeof response.rawText === 'string'
-            ? response.rawText
-            : JSON.stringify(response.data || response, null, 2)
-        );
-        setParsedResult(null);
-      } else {
-        setParsedResult({
-          mode: selectedMode,
-          data: validation.data,
-        });
-      }
+      setData(validatedData);
+      setStatus('success');
     } catch (err) {
-      if (currentId !== requestId.current) return;
-      setError(err.message || 'Failed to generate study materials.');
-      setErrorDetails(err.stack || String(err));
-      setParsedResult(null);
-    } finally {
-      if (currentId === requestId.current) {
-        setIsLoading(false);
-      }
-    }
-  };
+      // If request was aborted by a newer request, silently ignore
+      if (err.name === 'AbortError') return;
 
-  const handleRetry = () => {
-    if (lastPrompt) {
-      handleGenerate(lastPrompt, mode);
+      // If a newer request was dispatched in the meantime, discard error
+      if (id !== requestId.current) return;
+
+      setError({
+        kind: err.kind || 'network',
+        message: err.message,
+        details: err.details,
+      });
+      setStatus('error');
     }
-  };
+  }
+
+  function handleRetry() {
+    if (lastInput.notes) {
+      handleGenerate(lastInput.notes, lastInput.mode);
+    }
+  }
+
+  function handleModeChange(newMode) {
+    setMode(newMode);
+    // If we have successful data of previous mode, we can clear or keep until new generation
+  }
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+      {/* Top Navigation Bar */}
       <header
         style={{
           borderBottom: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(10, 13, 20, 0.8)',
-          backdropFilter: 'blur(12px)',
+          backgroundColor: 'rgba(10, 13, 20, 0.85)',
+          backdropFilter: 'blur(14px)',
           position: 'sticky',
           top: 0,
           zIndex: 50,
@@ -105,7 +100,7 @@ export default function App() {
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 15px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)',
               }}
             >
               <BrainCircuit size={22} color="#fff" />
@@ -125,7 +120,7 @@ export default function App() {
                 <span
                   style={{
                     fontSize: '0.65rem',
-                    padding: '2px 6px',
+                    padding: '2px 7px',
                     borderRadius: '999px',
                     backgroundColor: 'rgba(99, 102, 241, 0.15)',
                     color: 'var(--accent-primary)',
@@ -165,14 +160,22 @@ export default function App() {
                   backgroundColor: 'var(--accent-success)',
                 }}
               />
-              Proxy Active
+              Proxy Ready
             </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main style={{ flex: 1, maxWidth: '1040px', width: '100%', margin: '0 auto', padding: '2rem 1.5rem' }}>
+      {/* Main Container */}
+      <main
+        style={{
+          flex: 1,
+          maxWidth: '1040px',
+          width: '100%',
+          margin: '0 auto',
+          padding: '2rem 1.5rem',
+        }}
+      >
         {/* Intro Hero Badge */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
           <div
@@ -191,41 +194,52 @@ export default function App() {
             }}
           >
             <GraduationCap size={15} />
-            Turn Unstructured Notes into Interactive Flashcards & Quizzes
+            AI-Driven Educational Knowledge Structuring
           </div>
-          <h2 style={{ fontSize: '2rem', fontWeight: '800', letterSpacing: '-0.03em', color: 'var(--text-primary)' }}>
-            Learn Smarter with Structured AI
+          <h2
+            style={{
+              fontSize: '2rem',
+              fontWeight: '800',
+              letterSpacing: '-0.03em',
+              color: 'var(--text-primary)',
+            }}
+          >
+            Turn Raw Notes into Interactive Study Tools
           </h2>
-          <p style={{ color: 'var(--text-secondary)', maxWidth: '580px', margin: '0.5rem auto 0', fontSize: '0.95rem' }}>
-            Input raw notes, concepts, or technical topics. The AI returns strictly validated JSON rendered into full interactive tools with zero raw chat boxes.
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              maxWidth: '580px',
+              margin: '0.5rem auto 0',
+              fontSize: '0.95rem',
+            }}
+          >
+            Paste your notes or any complex topic. The AI returns strictly validated JSON rendered into interactive 3D flashcards or scored assessment quizzes.
           </p>
         </div>
 
-        {/* Free-form Input */}
+        {/* Free-form Input Area */}
         <PromptInput
           onSubmit={handleGenerate}
-          isLoading={isLoading}
+          isLoading={status === 'loading'}
           currentMode={mode}
-          onModeChange={(newMode) => {
-            setMode(newMode);
-            // If already have result of different mode, can switch or preserve
-          }}
+          onModeChange={handleModeChange}
+          initialNotes={lastInput.notes}
         />
 
-        {/* Dynamic States */}
-        {isLoading && <LoadingState mode={mode} />}
+        {/* Dynamic State Views */}
+        {status === 'loading' && <LoadingState mode={mode} />}
 
-        {!isLoading && error && (
+        {status === 'error' && error && (
           <ErrorState
             error={error}
-            details={errorDetails}
             onRetry={handleRetry}
-            isRetrying={isLoading}
+            isRetrying={status === 'loading'}
           />
         )}
 
-        {!isLoading && !error && parsedResult && (
-          <ResultView mode={parsedResult.mode} data={parsedResult.data} />
+        {status === 'success' && data && (
+          <ResultView mode={mode} data={data} />
         )}
       </main>
 
@@ -240,7 +254,17 @@ export default function App() {
           marginTop: 'auto',
         }}
       >
-        <div style={{ maxWidth: '1040px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div
+          style={{
+            maxWidth: '1040px',
+            margin: '0 auto',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
           <span>AI-Powered Interactive Study Tool — Flam Frontend Assignment</span>
           <span>Groq Llama-3 Structured JSON · Defensive Schema Parser</span>
         </div>
