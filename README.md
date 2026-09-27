@@ -161,3 +161,4 @@ In accordance with the assignment guidelines, here is the exact breakdown of how
 | **Phase 7** | 375px mobile viewport responsiveness & $\ge 44\text{px}$ touch target optimization | ~35 mins |
 | **Phase 8** | LocalStorage session/quiz progress persistence & CSS-variable Dark/Light theme | ~30 mins |
 | **Total** | | **~5.3 Hours** |
+"# StudyCraft_AI-FLAM_AI-" 

@@ -367,7 +367,7 @@ export default function App() {
             gap: '0.75rem',
           }}
         >
-          <span>StudyCraft AI — Flam Frontend Internship Project</span>
+          <span>StudyCraft AI</span>
           <span>Groq Llama-3 · LocalStorage Persistence · Dark/Light Mode</span>
         </div>
       </footer>
