@@ -12,9 +12,10 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+const QUIZ_STORAGE_KEY = 'studycraft_quiz_progress';
+
 /**
- * QuizView: Interactive Assessment Component
- * Responsive for viewports >= 375px with >= 44px touch targets.
+ * QuizView: Interactive Assessment Component with LocalStorage Progress Persistence
  */
 export default function QuizView({
   questions: propQuestions,
@@ -26,19 +27,126 @@ export default function QuizView({
   const displayTitle = propTitle || payload?.title || 'Assessment Quiz';
   const displayTopic = propTopic || payload?.topic || 'Interactive Assessment';
 
-  // Active quiz state
-  const [activeQuestions, setActiveQuestions] = useState(initialQuestions);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [selectedOptionId, setSelectedOptionId] = useState(null);
-  const [isAnswerRevealed, setIsAnswerRevealed] = useState(false);
+  // Restore quiz progress from localStorage if available
+  const [activeQuestions, setActiveQuestions] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle && Array.isArray(parsed.activeQuestions) && parsed.activeQuestions.length > 0) {
+          return parsed.activeQuestions;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return initialQuestions;
+  });
 
-  // Stored answers history for summary calculation: { [questionId]: { selectedId: string, isCorrect: boolean } }
-  const [answersHistory, setAnswersHistory] = useState({});
-  const [isQuizComplete, setIsQuizComplete] = useState(false);
-  const [isRetestMode, setIsRetestMode] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle && typeof parsed.currentIndex === 'number') {
+          return parsed.currentIndex;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 0;
+  });
 
-  // Sync state when props change
+  const [selectedOptionId, setSelectedOptionId] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle) {
+          return parsed.selectedOptionId || null;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  });
+
+  const [isAnswerRevealed, setIsAnswerRevealed] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle) {
+          return Boolean(parsed.isAnswerRevealed);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
+  const [answersHistory, setAnswersHistory] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle && parsed.answersHistory) {
+          return parsed.answersHistory;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return {};
+  });
+
+  const [isQuizComplete, setIsQuizComplete] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle) {
+          return Boolean(parsed.isQuizComplete);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
+  const [isRetestMode, setIsRetestMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle) {
+          return Boolean(parsed.isRetestMode);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
+  // Re-sync if a completely new quiz payload is passed
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.quizTitle === displayTitle) {
+          return; // preserve in-progress quiz session
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     setActiveQuestions(initialQuestions);
     setCurrentIndex(0);
     setSelectedOptionId(null);
@@ -46,7 +154,40 @@ export default function QuizView({
     setAnswersHistory({});
     setIsQuizComplete(false);
     setIsRetestMode(false);
-  }, [initialQuestions]);
+    localStorage.removeItem(QUIZ_STORAGE_KEY);
+  }, [initialQuestions, displayTitle]);
+
+  // Save progress changes to localStorage
+  useEffect(() => {
+    if (activeQuestions.length === 0) return;
+    try {
+      localStorage.setItem(
+        QUIZ_STORAGE_KEY,
+        JSON.stringify({
+          quizTitle: displayTitle,
+          activeQuestions,
+          currentIndex,
+          selectedOptionId,
+          isAnswerRevealed,
+          answersHistory,
+          isQuizComplete,
+          isRetestMode,
+          updatedAt: Date.now(),
+        })
+      );
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [
+    displayTitle,
+    activeQuestions,
+    currentIndex,
+    selectedOptionId,
+    isAnswerRevealed,
+    answersHistory,
+    isQuizComplete,
+    isRetestMode,
+  ]);
 
   const totalQuestions = activeQuestions.length;
   const currentQ = activeQuestions[currentIndex];
@@ -76,7 +217,7 @@ export default function QuizView({
 
   // Handle selecting an option before submission
   const handleSelectOption = (optionId) => {
-    if (isAnswerRevealed) return; // Locked after submission
+    if (isAnswerRevealed) return;
     setSelectedOptionId(optionId);
   };
 
@@ -138,6 +279,11 @@ export default function QuizView({
     setAnswersHistory({});
     setIsQuizComplete(false);
     setIsRetestMode(false);
+    try {
+      localStorage.removeItem(QUIZ_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
   };
 
   // ==========================================

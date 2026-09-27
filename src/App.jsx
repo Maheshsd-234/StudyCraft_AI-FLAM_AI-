@@ -1,12 +1,26 @@
-import React, { useState, useRef } from 'react';
-import { BrainCircuit, GraduationCap } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { BrainCircuit, GraduationCap, Sun, Moon, Trash2, RefreshCw } from 'lucide-react';
 import PromptInput from './components/PromptInput.jsx';
 import ResultView from './components/ResultView.jsx';
 import LoadingState from './components/LoadingState.jsx';
 import ErrorState from './components/ErrorState.jsx';
 import { generate } from './lib/api.js';
+import { validateResult } from './lib/validateResult.js';
+
+const SESSION_STORAGE_KEY = 'studycraft_last_session';
+const THEME_STORAGE_KEY = 'studycraft_theme';
 
 export default function App() {
+  // Theme state: 'dark' | 'light' (pure CSS variables)
+  const [theme, setTheme] = useState(() => {
+    try {
+      return localStorage.getItem(THEME_STORAGE_KEY) || 'dark';
+    } catch {
+      return 'dark';
+    }
+  });
+
+  // Stored session restoration
   const [status, setStatus] = useState('idle'); // 'idle' | 'loading' | 'success' | 'error'
   const [data, setData] = useState(null);
   const [error, setError] = useState(null); // { kind, message, details }
@@ -17,6 +31,59 @@ export default function App() {
   const requestId = useRef(0);
   const abortControllerRef = useRef(null);
 
+  // Apply theme to root document element
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, theme);
+    } catch {
+      // ignore
+    }
+  }, [theme]);
+
+  // Restore previous session from localStorage on initial mount (with defensive validation)
+  useEffect(() => {
+    try {
+      const storedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+      if (storedSession) {
+        const parsed = JSON.parse(storedSession);
+        const storedMode = parsed.mode || 'flashcards';
+
+        // Defensively validate stored data before rendering
+        const validation = validateResult(parsed.data, storedMode);
+        if (validation.valid) {
+          setData(validation.data);
+          setMode(storedMode);
+          if (parsed.lastInput) {
+            setLastInput(parsed.lastInput);
+          }
+          setStatus('success');
+        } else {
+          // If stored data was somehow malformed, discard it
+          localStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+      }
+    } catch {
+      // ignore storage parsing issues
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleClearSession = () => {
+    setData(null);
+    setStatus('idle');
+    setError(null);
+    try {
+      localStorage.removeItem(SESSION_STORAGE_KEY);
+      localStorage.removeItem('studycraft_quiz_progress');
+    } catch {
+      // ignore
+    }
+  };
+
   async function handleGenerate(inputNotes, selectedMode = mode) {
     // 1. Cancel in-flight request if any
     if (abortControllerRef.current) {
@@ -25,21 +92,37 @@ export default function App() {
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    // 2. Increment request ID guard
+    // 2. Increment monotonic request sequence guard
     const id = ++requestId.current;
 
     setStatus('loading');
     setError(null);
-    setLastInput({ notes: inputNotes, mode: selectedMode });
+    const currentInput = { notes: inputNotes, mode: selectedMode };
+    setLastInput(currentInput);
 
     try {
       const validatedData = await generate(inputNotes, selectedMode, controller.signal);
 
-      // Stale response check: discard if a newer request was dispatched
+      // Stale response guard check
       if (id !== requestId.current) return;
 
       setData(validatedData);
       setStatus('success');
+
+      // Persist successful session to localStorage
+      try {
+        localStorage.setItem(
+          SESSION_STORAGE_KEY,
+          JSON.stringify({
+            data: validatedData,
+            mode: selectedMode,
+            lastInput: currentInput,
+            savedAt: Date.now(),
+          })
+        );
+      } catch {
+        // ignore storage quota errors
+      }
     } catch (err) {
       // If request was aborted by a newer request, silently ignore
       if (err.name === 'AbortError') return;
@@ -64,7 +147,6 @@ export default function App() {
 
   function handleModeChange(newMode) {
     setMode(newMode);
-    // If we have successful data of previous mode, we can clear or keep until new generation
   }
 
   return (
@@ -73,47 +155,53 @@ export default function App() {
       <header
         style={{
           borderBottom: '1px solid var(--border-subtle)',
-          backgroundColor: 'rgba(10, 13, 20, 0.85)',
+          backgroundColor: 'var(--bg-glass)',
           backdropFilter: 'blur(14px)',
           position: 'sticky',
           top: 0,
           zIndex: 50,
+          width: '100%',
         }}
       >
         <div
           style={{
             maxWidth: '1040px',
             margin: '0 auto',
-            padding: '1rem 1.5rem',
+            padding: '0.85rem 1.25rem',
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Brand Logo */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{
-                width: '38px',
-                height: '38px',
+                width: '36px',
+                height: '36px',
                 borderRadius: 'var(--radius-sm)',
                 background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 0 16px rgba(99, 102, 241, 0.4)',
+                boxShadow: 'var(--shadow-glow)',
+                flexShrink: 0,
               }}
             >
-              <BrainCircuit size={22} color="#fff" />
+              <BrainCircuit size={20} color="#fff" />
             </div>
             <div>
               <h1
                 style={{
-                  fontSize: '1.15rem',
+                  fontSize: '1.1rem',
                   fontWeight: '800',
                   letterSpacing: '-0.02em',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '6px',
+                  margin: 0,
                 }}
               >
                 StudyCraft AI
@@ -129,44 +217,67 @@ export default function App() {
                     textTransform: 'uppercase',
                   }}
                 >
-                  Structured UI
+                  Interactive
                 </span>
               </h1>
-              <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Flam Frontend Assignment · AI Interactive Tool
+              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>
+                Structured AI Study Assistant
               </p>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div
+          {/* Header Controls (Theme Toggle & Session Clear) */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {data && (
+              <button
+                type="button"
+                onClick={handleClearSession}
+                title="Clear current study session"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  padding: '0.4rem 0.8rem',
+                  minHeight: '38px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-subtle)',
+                  fontSize: '0.78rem',
+                  fontWeight: '600',
+                }}
+              >
+                <Trash2 size={13} />
+                Clear
+              </button>
+            )}
+
+            {/* Dark / Light Mode CSS Variable Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
               style={{
-                display: 'flex',
+                display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
-                fontSize: '0.8rem',
-                color: 'var(--accent-success)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                padding: '4px 10px',
-                borderRadius: '999px',
-                border: '1px solid rgba(16, 185, 129, 0.25)',
+                justifyContent: 'center',
+                width: '38px',
+                height: '38px',
+                minHeight: '38px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--bg-surface)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-subtle)',
+                transition: 'var(--transition-fast)',
               }}
             >
-              <span
-                style={{
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--accent-success)',
-                }}
-              />
-              Proxy Ready
-            </div>
+              {theme === 'dark' ? <Sun size={17} color="var(--accent-warning)" /> : <Moon size={17} color="var(--accent-primary)" />}
+            </button>
           </div>
         </div>
       </header>
 
-      {/* Main Container */}
+      {/* Main App Container */}
       <main
         className="app-container"
         style={{
@@ -174,7 +285,7 @@ export default function App() {
           maxWidth: '1040px',
           width: '100%',
           margin: '0 auto',
-          padding: '2rem 1.5rem',
+          padding: '2rem 1.25rem',
           boxSizing: 'border-box',
         }}
       >
@@ -196,7 +307,7 @@ export default function App() {
             }}
           >
             <GraduationCap size={15} />
-            AI-Driven Educational Knowledge Structuring
+            AI-Powered Knowledge Synthesis
           </div>
           <h2
             className="hero-title"
@@ -251,11 +362,12 @@ export default function App() {
       <footer
         style={{
           borderTop: '1px solid var(--border-subtle)',
-          padding: '1.5rem',
+          padding: '1.25rem',
           textAlign: 'center',
           color: 'var(--text-muted)',
           fontSize: '0.8rem',
           marginTop: 'auto',
+          backgroundColor: 'var(--bg-glass)',
         }}
       >
         <div
@@ -266,11 +378,11 @@ export default function App() {
             justifyContent: 'space-between',
             alignItems: 'center',
             flexWrap: 'wrap',
-            gap: '1rem',
+            gap: '0.75rem',
           }}
         >
-          <span>AI-Powered Interactive Study Tool — Flam Frontend Assignment</span>
-          <span>Groq Llama-3 Structured JSON · Defensive Schema Parser</span>
+          <span>StudyCraft AI — Flam Frontend Internship Project</span>
+          <span>Groq Llama-3 · LocalStorage Persistence · Dark/Light Mode</span>
         </div>
       </footer>
     </div>

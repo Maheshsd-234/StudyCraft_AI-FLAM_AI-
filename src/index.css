@@ -1,8 +1,9 @@
-:root {
+:root,
+[data-theme="dark"] {
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Consistent Cohesive Color Palette */
+  /* Premium Dark Theme */
   --bg-primary: #0a0d14;
   --bg-secondary: #111726;
   --bg-surface: #172033;
@@ -19,7 +20,7 @@
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
 
-  /* Primary Accent: Indigo */
+  /* Accent Colors */
   --accent-primary: #6366f1;
   --accent-primary-hover: #4f46e5;
   --accent-primary-active: #4338ca;
@@ -29,30 +30,45 @@
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
 
-  /* Fluid Spacing Scale */
-  --space-xs: 0.25rem;
-  --space-sm: 0.5rem;
-  --space-md: 1rem;
-  --space-lg: 1.5rem;
-  --space-xl: 2rem;
-  --space-2xl: 3rem;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.25);
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
 
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
-  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.25);
-
   --transition-fast: 0.15s ease;
   --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 
-  /* Touch Target Standard */
   --touch-target-min: 44px;
+}
+
+[data-theme="light"] {
+  /* Crisp Light Theme */
+  --bg-primary: #f8fafc;
+  --bg-secondary: #f1f5f9;
+  --bg-surface: #e2e8f0;
+  --bg-surface-hover: #cbd5e1;
+  --bg-surface-active: #94a3b8;
+  --bg-glass: rgba(255, 255, 255, 0.85);
+  --bg-glass-card: rgba(255, 255, 255, 0.94);
+
+  --border-subtle: rgba(0, 0, 0, 0.08);
+  --border-focus: #6366f1;
+  --border-glow: rgba(99, 102, 241, 0.25);
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 20px 40px rgba(0, 0, 0, 0.12);
+  --shadow-glow: 0 0 30px rgba(99, 102, 241, 0.18);
 }
 
 *, *::before, *::after {
@@ -76,9 +92,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   touch-action: manipulation;
+  transition: background-color var(--transition-smooth), color var(--transition-smooth);
 }
 
-/* Fluid Background Glow */
+/* Background Ambient Glow */
 body::before {
   content: '';
   position: fixed;
@@ -91,6 +108,10 @@ body::before {
   filter: blur(80px);
   pointer-events: none;
   z-index: 0;
+}
+
+[data-theme="light"] body::before {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, rgba(6, 182, 212, 0.05) 50%, transparent 80%);
 }
 
 #root {
@@ -130,7 +151,7 @@ button:focus-visible {
 input, textarea {
   font-family: inherit;
   outline: none;
-  font-size: 1rem; /* Prevents auto-zoom on iOS */
+  font-size: 1rem;
   box-sizing: border-box;
 }
 
@@ -173,9 +194,7 @@ input, textarea {
   animation: spin 1s linear infinite;
 }
 
-/* ===================================================
-   Responsive Mobile-First Layout Rules (<= 640px)
-   =================================================== */
+/* Responsive Mobile Layout Rules */
 @media (max-width: 640px) {
   .app-container {
     padding: 1rem 0.85rem !important;
