@@ -11,6 +11,7 @@ import {
   Layers,
   Sparkles,
   Keyboard,
+  MousePointerClick,
 } from 'lucide-react';
 
 /**
@@ -641,24 +642,31 @@ export default function FlashcardDeck({ cards: propCards, title: propTitle, summ
         </button>
       </div>
 
-      {/* Keyboard Short-cuts Indicator */}
+      {/* Interaction Indicator: Desktop Keyboard vs Mobile Tap */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          gap: '8px',
           color: 'var(--text-muted)',
-          fontSize: '0.78rem',
+          fontSize: '0.8rem',
           padding: '6px',
           textAlign: 'center',
-          flexWrap: 'wrap',
         }}
       >
-        <Keyboard size={14} />
-        <span>
-          <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Space</kbd> / <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Enter</kbd> Flip · <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>←</kbd> <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>→</kbd> Navigate
-        </span>
+        <div className="desktop-shortcut-hint" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+          <Keyboard size={14} />
+          <span>
+            <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Space</kbd> / <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>Enter</kbd> Flip · <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>←</kbd> <kbd style={{ padding: '1px 5px', borderRadius: '3px', background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>→</kbd> Navigate
+          </span>
+        </div>
+
+        <div className="mobile-touch-hint" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <MousePointerClick size={14} color="var(--accent-primary)" />
+          <span>
+            <strong>Tap card</strong> to flip · Use buttons to navigate
+          </span>
+        </div>
       </div>
     </div>
   );

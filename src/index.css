@@ -265,3 +265,23 @@ input, textarea {
     width: 100% !important;
   }
 }
+
+/* Flashcard interaction hints (responsive for mobile vs desktop) */
+.desktop-shortcut-hint {
+  display: inline-flex !important;
+}
+
+.mobile-touch-hint {
+  display: none !important;
+}
+
+@media (max-width: 640px), (hover: none) and (pointer: coarse) {
+  .desktop-shortcut-hint {
+    display: none !important;
+  }
+
+  .mobile-touch-hint {
+    display: inline-flex !important;
+  }
+}
+
